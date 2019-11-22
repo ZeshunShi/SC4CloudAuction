@@ -41,7 +41,7 @@ contract Person {
  public {
    if (_owner == msg.sender) {
    // require (selfdestruct = payable)
-   selfdestruct (msg.sender);
+   selfdestruct (_owner);
    }
  }
 
