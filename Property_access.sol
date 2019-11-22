@@ -4,12 +4,13 @@ pragma solidity ^0.4.4;
 
 contract Animal {
 
+// default: internal
   uint _weight;
   uint private _height;
   uint internal _age;
   uint public _money;
 
-  /*int public _money will generate:
+  /*int public _money will generate a "get" function:
   function _money() constant returns (uint) {
     return 120;
   } */
@@ -44,6 +45,26 @@ contract Animal {
 
   function testInternal3() constant returns () {
     return test3()
+  }
+
+}
+
+contract Dog is Animal {
+
+  function testWeight() constant returns (uint) {
+    return _weight;
+  }
+
+  function testHeight() constant returns (uint) {
+    return _height;
+  }
+
+  function testAge() constant returns (uint) {
+    return _age;
+  }
+
+  function testMoney() constant returns (uint) {
+    return _money;
   }
 
 }
