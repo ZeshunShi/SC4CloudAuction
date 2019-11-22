@@ -49,7 +49,14 @@ contract Animal {
 
 }
 
-contract Dog is Animal {
+contract Animal1 {
+  uint _sex; //1 male, 2 female
+  function Animal1() {
+    _sex = 1;
+  }
+}
+
+contract Dog is Animal,Animal1 {
 
   function testWeight() constant returns (uint) {
     return _weight;
