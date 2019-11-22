@@ -1,11 +1,11 @@
 pragma solidity ^0.4.4;
 
 contract Person {
- uint _height;
+ uint  _height;
  uint _age;
  address _owner;
 
- function Person() public {
+ function Person() {
 
    _height = 180;
    _age = 29;
@@ -21,20 +21,20 @@ contract Person {
    return _owner;
  }
 
- function setHeight(uint height) public {
+ function setHeight(uint height) {
    _height = height;
  }
 
- function height() constant public returns (uint) {
+ function height() constant returns (uint) {
    return _height;
 
  }
 
- function setAge(uint age) public {
+ function setAge(uint age) {
    _age = age;
 
  }
- function age() constant public returns (uint) {
+ function age() constant returns (uint) {
    return _age;
  }
  function kill()
