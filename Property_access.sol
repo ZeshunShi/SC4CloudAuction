@@ -9,7 +9,8 @@ contract Animal {
   uint internal _age;
   uint public _money;
 
-  /* function money() constant returns (uint) {
+  /*int public _money will generate:
+  function _money() constant returns (uint) {
     return 120;
   } */
 
