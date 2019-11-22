@@ -1,7 +1,7 @@
 pragma solidity ^0.4.4;
 
 contract Person {
- uint  _height;
+ uint _height;
  uint _age;
  address _owner;
 
