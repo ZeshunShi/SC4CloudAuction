@@ -38,7 +38,8 @@ contract Person {
    return _age;
  }
  function kill()
- public {
+ public
+  {
    if (_owner == msg.sender) {
    // require (selfdestruct = payable)
    selfdestruct (_owner);
