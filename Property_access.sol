@@ -74,4 +74,9 @@ contract Dog is Animal,Animal1 {
     return _money;
   }
 
+
+  function getBalance(address addr) constant returns (uint) {
+    return add.balance
+  }
+
 }
