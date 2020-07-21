@@ -10,12 +10,12 @@ import "./library/librarySorting.sol";
 
 
 contract CloudAuction {
-    constructor() 
-		public 
-    {
 
-    }
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    /**
+     * parameters 
+     */
 
     enum ProviderState { Offline, Online, Candidate, Busy }
 
@@ -24,9 +24,7 @@ contract CloudAuction {
         uint index; ///the index of the provider in the address pool, if it is registered
         bool registered;    ///true: this provider has registered.         
         int8 reputaion; //the reputation of the provider, the initial value is 0.
-        CloudProviderState state;  // the state of the provider
-        address SLAContract;    ////the SLA contract address of 
-        
+        ProviderState state;  // the state of the provider
     }
 
     mapping (address => Provider) providerCrowd;
@@ -35,30 +33,51 @@ contract CloudAuction {
     address [] public providerAddrs;    ////the address pool of providers
 
     
-    
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * modifiers 
+     */
 
     // check whether it is a registered provider
     modifier checkProvider(address _provider){
         require(providerCrowd[_provider].registered);
         _;
     }    
-    ////check whether the register has already registered
-    modifier checkRegister(address _register){
-        require(!witnessPool[_register].registered);
-        _;
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * functions 
+     */
+    
+    constructor(uint _auctionTime, uint _revealTime, address payable _customer) 
+        public 
+    {
+        customer = _Customer;
+        auctionEnd = now + _auctionTime;
+        revealEnd = auctionEnd + _revealTime;
     }
+
+
+    function myFunction () returns(bool res) internal {
+        
+    }
+    
 
 
 
     /**
      * Normal User Interface::
-     * This is for the normal user to register as a provider in the providerCrowd
+     * This is for the normal user to register as a Cloud provider in the auction game
      * */
     function register() 
         public 
-        checkRegister(msg.sender) 
     {
-        providerCrowd[msg.sender].index = witnessAddrs.push(msg.sender) - 1;
+        require(!providerCrowd[_provider].registered);
+        providerCrowd[msg.sender].index = providerAddrs.push(msg.sender) - 1;
         providerCrowd[msg.sender].state = ProviderState.Offline;
         providerCrowd[msg.sender].reputation = 0; 
         providerCrowd[msg.sender].registered = true;
@@ -67,7 +86,7 @@ contract CloudAuction {
 
     /**
      * Sorting Interface::
-     * This is for sorting the bidding price of different providers
+     * This is for sorting the bidding prices by ascending of  different providers
      * */
 
     using SortingMethods for uint[];
@@ -91,7 +110,7 @@ contract CloudAuction {
      * This is for the winner provider to generate a SLA contract
      * */
     function genSLAContract() 
-        public 
+        public
         returns
         (address)
     {
@@ -100,14 +119,7 @@ contract CloudAuction {
         emit SLAContractGen(msg.sender, now, newSLAContract);
         return newSLAContract;
     }    
-
-
-
-
-
-
 }
-
 
 
 
