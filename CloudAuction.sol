@@ -13,10 +13,6 @@ contract CloudAuction {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    /**
-     * parameters 
-     */
-
     enum ProviderState { Offline, Online, Candidate, Busy }
 
     struct Provider {
@@ -35,10 +31,6 @@ contract CloudAuction {
     
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    /**
-     * modifiers 
-     */
-
     // check whether it is a registered provider
     modifier checkProvider(address _provider){
         require(providerCrowd[_provider].registered);
@@ -49,9 +41,6 @@ contract CloudAuction {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    /**
-     * functions 
-     */
     
     constructor(uint _auctionTime, uint _revealTime, address payable _customer) 
         public 
@@ -60,6 +49,33 @@ contract CloudAuction {
         auctionEnd = now + _auctionTime;
         revealEnd = auctionEnd + _revealTime;
     }
+
+// process:
+// 1. Cloud Customer upload the service information that needs to be auctioned. (and the parameters: k, reserve price U(blind))
+// 2. Cloud providers register in the AuctionContract (reputation 0). If the number of registered providers achieve the condition (*2), then // event: auction start.
+// 3. Registered providers submit their blinded bid + bid deposit (10%).   => function sumitBid // event: bids submitted.  // set: time window, - reputation (lazy) // only 接收到的报价的数量大于k， bidding 才能结束
+// 4. Reveal the bids with keccak256 algorithm. // Sorting the bids by ascending, 只有当满足reserve price U的报价的数量大于k的，拍卖成功，选出winner和他们的报价。给没有中标的provider退还保证金。the bid deposit is only refunded if the bid is correctly revealed in the revealing phase. 
+// 5. Winner bidders sign the SLAs with the user, respectively.
+// 
+// 
+// 
+// 
+// 
+// 
+//  
+//   
+//     
+// 
+// 
+// 
+// [vi^max, vi^min], 
+// 
+//  event: auction end
+// 
+
+
+
+
 
 
     function myFunction () returns(bool res) internal {
