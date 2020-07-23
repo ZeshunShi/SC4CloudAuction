@@ -32,13 +32,14 @@ contract CloudAuction {
     }
 
     mapping (address => Provider) providerCrowd;
+
     address [] public providerAddrs;    ////the address pool of providers, which is used for registe new providers in the auction 
 
 
     bool public auctionStarted; 
 
 
-//  the constructors for the auction smart contract.
+    //  the constructors for the auction smart contract.
     constructor(address payable _customer, uint _auctionTime, uint _revealTime, uint _withdrawTime) 
         public 
     {
@@ -52,9 +53,14 @@ contract CloudAuction {
 
     function providerRegister () 
         public
+        checkProviderRegistered(msg.sender)
         view
-        returns(bool success) {
-        
+        returns(bool success) 
+    {
+        providerCrowd[msg.sender].index = providerAddrs.push(msg.sender) - 1; // check why -1
+        providerCrowd[msg.sender].reputation = 0;
+        providerCrowd[msg.sender].state = ProviderState.Ready;
+        providerCrowd[msg.sender].registered = true;
     }
     
 
@@ -73,12 +79,12 @@ contract CloudAuction {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     modifier checkServiceInformation (uint _time) { 
-        require (serviceDetails.length() != 0); 
+        require (serviceDetails != null && serviceDetails.length() != 0); 
         "The auction service information has not been uploaded by customer"; 
     }
     
     // check whether it is a registered provider
-    modifier checkProvider(address _provider)
+    modifier checkProviderRegistered(address _provider)
     {
         require(providerCrowd[_provider].registered);
         "The provider is not registered for the auction";
@@ -113,7 +119,6 @@ contract CloudAuction {
         customer = _customer;
         auctionEnd = now + _auctionTime;
         revealEnd = auctionEnd + _revealTime;
-
     }
 
 
