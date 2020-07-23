@@ -39,15 +39,24 @@ contract CloudAuction {
 
 
 //  the constructors for the auction smart contract.
-    constructor(uint _auctionTime, uint _revealTime, address payable _customer) 
+    constructor(address payable _customer, uint _auctionTime, uint _revealTime, uint _withdrawTime) 
         public 
     {
         customer = _customer;
         auctionEnd = now + _auctionTime;
         revealEnd = auctionEnd + _revealTime;
-
+        withdrawEnd = revealEnd + _withdrawTime;
     }
 
+
+
+    function providerRegister () 
+        public
+        view
+        returns(bool success) {
+        
+    }
+    
 
 
     function auctionStart () 
