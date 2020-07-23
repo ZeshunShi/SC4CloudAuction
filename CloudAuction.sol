@@ -36,12 +36,11 @@ contract CloudAuction {
 
     address [] public providerAddrs;    ////the address pool of providers, which is used for registe new providers in the auction 
 
-
     bool public auctionStarted; 
 
 
 
-    enum AuctionState { published, registered, biddingEnd, revealEnd, monitored, finished }
+    enum AuctionState { started, inviteBidsEnd, registeEnd, bidEnd, revealEnd, monitored, finished }
     ////this is to log event that _who modified the Auction state to _newstate at time stamp _time
     event AuctionStateModified(address indexed _who, uint _time, State _newstate);
     emit SLAStateModified(msg.sender, now, State.published);
@@ -64,17 +63,25 @@ contract CloudAuction {
     constructor(address payable _customer, uint _biddingTime, uint _revealTime, uint _withdrawTime) 
         public 
     {
+
+        require (_biddingTime > 0);
+        require (_revealTime > 0);
+        require (_withdrawTime > 0);      
         customer = _customer;
         biddingEnd = now + _biddingTime;
         revealEnd = biddingEnd + _revealTime;
         withdrawEnd = revealEnd + _withdrawTime;
+        auctionStarted = false;
     }
 
 
-
+    /**
+     * Normal User Interface::
+     * This is for the normal user to register as a Cloud provider in the auction game
+     * */
     function providerRegister () 
         public
-        checkProviderRegistered(msg.sender)
+        checkProviderNotRegistered(msg.sender)
         view
         returns(bool success) 
     {
@@ -97,20 +104,35 @@ contract CloudAuction {
         emit auctionStarted(msg.sender, now);        
     }
 
+   /**
+     * Providers Interface::
+     * This is for the providers to bid for the auction goods (service)
+     * */
+    function submitBids () 
+        public
+        payable
+
+    {
+        
+    }
+    
+
 
     
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    modifier checkServiceInformation (uint _time) { 
+    // check whether the servide information has been published
+    modifier checkServiceInformation () 
+    { 
         require (serviceDetails != null && serviceDetails.length() != 0); 
         "The auction service information has not been uploaded by customer"; 
     }
     
     // check whether it is a registered provider
-    modifier checkProviderRegistered(address _provider)
+    modifier checkProviderNotRegistered(address _provider)
     {
-        require(providerCrowd[_provider].registered);
+        require(!providerCrowd[_provider].registered);
         "The provider is not registered for the auction";
     }
 
@@ -127,6 +149,19 @@ contract CloudAuction {
         require (providerAddrs.length > 2*k); 
         "The number of registered providers (bidders) is not enough to start the auction";
     }
+
+    modifier checkTimeBefore(uint _time) 
+    {   
+        require(now < _time);
+         "The time is not befor ; 
+    }
+
+    modifier checkTimeAfter(uint _time)
+    {    require(now > _time);
+        _; 
+    }
+
+
     
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,37 +197,9 @@ contract CloudAuction {
 // 5. Winner bidders sign the SLAs with the user, respectively.
 // 
 // 
-// 
-// 
-// 
-// 
-//  
-//   
-//     
-// 
-// 
-// 
-// [vi^max, vi^min], 
-// 
-//  event: auction end
-// 
+//
 
 
-
-    /**
-     * Normal User Interface::
-     * This is for the normal user to register as a Cloud provider in the auction game
-     * */
-    function register() 
-        public 
-    {
-        require(!providerCrowd[_provider].registered);
-        providerCrowd[msg.sender].index = providerAddrs.push(msg.sender) - 1;
-        providerCrowd[msg.sender].state = ProviderState.Offline;
-        providerCrowd[msg.sender].reputation = 0; 
-        providerCrowd[msg.sender].registered = true;
-    }
-    
 
     /**
      * Sorting Interface::
@@ -229,6 +236,18 @@ contract CloudAuction {
         emit SLAContractGen(msg.sender, now, newSLAContract);
         return newSLAContract;
     }    
+}
+
+
+
+
+/**
+ * The witness contract does this and that...
+ */
+contract witness {
+  constructor() public {
+    
+  }
 }
 
 
