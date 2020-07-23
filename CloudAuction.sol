@@ -23,7 +23,7 @@ contract CloudAuction {
     bytes32 public blindedReservePrice; // the blinded reservce price of the customer
     uint public guaranteeDeposit; // this is the deposit money to guarantee providers/customer will sign the SLA after win the bids, avoids bad intention bids or publish
 
-    enum ProviderState { Offline, Online, Candidate, Busy }
+    enum ProviderState {Ready, Busy, Absent} //{ Offline, Online, Candidate, Busy }
     struct Provider {
         uint index; // the index of the provider in the address pool, if it is registered
         bool registered;    ///true: this provider has registered.         
@@ -37,19 +37,37 @@ contract CloudAuction {
 
     bool public auctionStarted; 
 
+
+//  the constructors for the auction smart contract.
+    constructor(uint _auctionTime, uint _revealTime, address payable _customer) 
+        public 
+    {
+        customer = _customer;
+        auctionEnd = now + _auctionTime;
+        revealEnd = auctionEnd + _revealTime;
+
+    }
+
+
+
     function auctionStart () 
         public
+        checkServiceInformation
         checkProviderNumber
     {
         require (!auctionStarted);
-        auctionStarted = true;        
+        auctionStarted = true; 
+        emit auctionStarted(msg.sender, now);        
     }
     
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
+    modifier checkServiceInformation (uint _time) { 
+        require (serviceDetails.length() != 0); 
+        "The auction service information has not been uploaded by customer"; 
+    }
+    
     // check whether it is a registered provider
     modifier checkProvider(address _provider)
     {
@@ -61,20 +79,20 @@ contract CloudAuction {
     modifier checkProviderReputation () 
     { 
         require (reputation >= 0); 
-        "the provider is not qualified to participate the auction due to bad reputation; 
+        "The provider is not qualified to participate the auction due to bad reputation; 
     }
 
     // check the bidders number. the minimum biiders number is set to 2*k and can be customized later 
     modifier checkProviderNumber() 
     { 
         require (providerAddrs.length > 2*k); 
-        "the number of registered providers (bidders) is not enough to start the auction";
+        "The number of registered providers (bidders) is not enough to start the auction";
     }
     
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    event auctionStarted()
+    event auctionStarted(address _who, uint _time)
     event AuctionEnded(address winner, uint highestBid);
 
 
