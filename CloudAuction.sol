@@ -41,6 +41,7 @@ contract CloudAuction {
 
 
     enum AuctionState { started, inviteBidsEnd, registeEnd, bidEnd, revealEnd, monitored, finished }
+  
     ////this is to log event that _who modified the Auction state to _newstate at time stamp _time
     event AuctionStateModified(address indexed _who, uint _time, State _newstate);
     emit SLAStateModified(msg.sender, now, State.published);
@@ -60,20 +61,38 @@ contract CloudAuction {
     uint public revealEnd;
     uint public withdrawEnd;
     //  the constructors for the auction smart contract.
-    constructor(address payable _customer, uint _biddingTime, uint _revealTime, uint _withdrawTime) 
+    constructor(address payable _customer, uint _registeTime, uint _biddingTime, uint _revealTime, uint _refundTime) 
         public 
     {
-
+        require (_inviteTime > 0);
         require (_biddingTime > 0);
         require (_revealTime > 0);
-        require (_withdrawTime > 0);      
+        require (_withdrawTime > 0);    
+
         customer = _customer;
-        biddingEnd = now + _biddingTime;
+
+        registeEnd = now + _registeTime
+        biddingEnd = registeEnd + _biddingTime;
         revealEnd = biddingEnd + _revealTime;
-        withdrawEnd = revealEnd + _withdrawTime;
+        refundEnd = revealEnd + _refundTime;
+
         auctionStarted = false;
     }
 
+
+   /**
+     * Customer Interface::
+     * This is for the providers to bid for the auction goods (service)
+     * */
+    function submitBids () 
+        public
+        payable
+        checkCustomer(msg.sender)
+        checkTimeBefore(biddingEnd)
+        checkTimeAfter(registeEnd)
+    {
+        
+    }
 
     /**
      * Normal User Interface::
@@ -111,7 +130,9 @@ contract CloudAuction {
     function submitBids () 
         public
         payable
-
+        checkTimeBefore(biddingEnd)
+        checkTimeAfter(registeEnd)
+        checkProvider(msg.sender)
     {
         
     }
@@ -153,12 +174,19 @@ contract CloudAuction {
     modifier checkTimeBefore(uint _time) 
     {   
         require(now < _time);
-         "The time is not befor ; 
+         "The time is not before the time point"; 
     }
 
     modifier checkTimeAfter(uint _time)
-    {    require(now > _time);
-        _; 
+    {    
+        require(now > _time);
+        "The time is not after the time point"; 
+    }
+
+    modifier checkProvider(address _user) 
+    {    
+        require(Provider[_user].registered);
+        "The current user is not a registered provider";
     }
 
 
