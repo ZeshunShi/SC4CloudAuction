@@ -24,6 +24,7 @@ contract CloudAuction {
     uint public guaranteeDeposit; // this is the deposit money to guarantee providers/customer will sign the SLA after win the bids, avoids bad intention bids or publish
 
     enum ProviderState {Ready, Busy, Absent} //{ Offline, Online, Candidate, Busy }
+
     struct Provider {
         uint index; // the index of the provider in the address pool, if it is registered
         bool registered;    ///true: this provider has registered.         
@@ -39,13 +40,33 @@ contract CloudAuction {
     bool public auctionStarted; 
 
 
+
+    enum AuctionState { published, registered, biddingEnd, revealEnd, monitored, finished }
+    ////this is to log event that _who modified the Auction state to _newstate at time stamp _time
+    event AuctionStateModified(address indexed _who, uint _time, State _newstate);
+    emit SLAStateModified(msg.sender, now, State.published);
+    emit SLAStateModified(msg.sender, now, State.registered);
+    emit SLAStateModified(msg.sender, now, State.biddingEnd);
+    emit SLAStateModified(msg.sender, now, State.revealEnd);
+    emit SLAStateModified(msg.sender, now, State.witnessed);
+    emit SLAStateModified(msg.sender, now, State.finished);
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    address payable public customer;
+    uint public biddingEnd;
+    uint public revealEnd;
+    uint public withdrawEnd;
     //  the constructors for the auction smart contract.
-    constructor(address payable _customer, uint _auctionTime, uint _revealTime, uint _withdrawTime) 
+    constructor(address payable _customer, uint _biddingTime, uint _revealTime, uint _withdrawTime) 
         public 
     {
         customer = _customer;
-        auctionEnd = now + _auctionTime;
-        revealEnd = auctionEnd + _revealTime;
+        biddingEnd = now + _biddingTime;
+        revealEnd = biddingEnd + _revealTime;
         withdrawEnd = revealEnd + _withdrawTime;
     }
 
@@ -61,6 +82,7 @@ contract CloudAuction {
         providerCrowd[msg.sender].reputation = 0;
         providerCrowd[msg.sender].state = ProviderState.Ready;
         providerCrowd[msg.sender].registered = true;
+        return true;
     }
     
 
@@ -74,6 +96,8 @@ contract CloudAuction {
         auctionStarted = true; 
         emit auctionStarted(msg.sender, now);        
     }
+
+
     
 
 
