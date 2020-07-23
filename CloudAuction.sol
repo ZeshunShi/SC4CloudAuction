@@ -19,9 +19,11 @@ contract CloudAuction {
 
         uint index; ///the index of the provider in the address pool, if it is registered
         bool registered;    ///true: this provider has registered.         
-        int8 reputaion; //the reputation of the provider, the initial value is 0.
+        int8 reputation; //the reputation of the provider, the initial value is 0.
         ProviderState state;  // the state of the provider
     }
+
+    
 
     mapping (address => Provider) providerCrowd;
 
@@ -31,11 +33,36 @@ contract CloudAuction {
     
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+    string serviceDetails; // the details of the service requirements
+    uint8 k; // how many providers the customer need for the auction game
+    
+    bytes32 blindedBid; // the blinded bidding price of the provider 
+    bytes32 blindedReservePrice; // the blinded bidding price of the provider
+    uint guaranteeDeposit; // this is the deposit money to guarantee providers/customer will sign the SLA after win the bids, avoids bad intention bids or publish
+
+
+
+
+        
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
     // check whether it is a registered provider
     modifier checkProvider(address _provider){
         require(providerCrowd[_provider].registered);
-        _;
-    }    
+        "The provider is not registered for auction.";
+    }
+
+    modifier checkProviderReputation () { 
+            require (reputation > 0); 
+            _; 
+        }
+
 
 
 
