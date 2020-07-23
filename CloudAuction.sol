@@ -11,40 +11,39 @@ import "./library/librarySorting.sol";
 
 contract CloudAuction {
 
+
+    
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    string public serviceDetails; // the details of the service requirements
+    uint8 public k; // how many providers the customer need for the auction game
+    
+    bytes32 public blindedBid; // the blinded bidding price of the provider 
+    bytes32 public blindedReservePrice; // the blinded reservce price of the customer
+    uint public guaranteeDeposit; // this is the deposit money to guarantee providers/customer will sign the SLA after win the bids, avoids bad intention bids or publish
 
     enum ProviderState { Offline, Online, Candidate, Busy }
-
     struct Provider {
-
-        uint index; ///the index of the provider in the address pool, if it is registered
+        uint index; // the index of the provider in the address pool, if it is registered
         bool registered;    ///true: this provider has registered.         
         int8 reputation; //the reputation of the provider, the initial value is 0.
-        ProviderState state;  // the state of the provider
+        ProviderState state;  // the current state of the provider
     }
 
-    
-
     mapping (address => Provider) providerCrowd;
+    address [] public providerAddrs;    ////the address pool of providers, which is used for registe new providers in the auction 
 
-    // mapping(address => SortitionInfo) SLAContractArray;
-    address [] public providerAddrs;    ////the address pool of providers
 
+    bool public auctionStarted; 
+
+    function auctionStart () 
+        public
+        checkProviderNumber
+    {
+        auctionStarted = true;
+    }
     
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-    string serviceDetails; // the details of the service requirements
-    uint8 k; // how many providers the customer need for the auction game
-    
-    bytes32 blindedBid; // the blinded bidding price of the provider 
-    bytes32 blindedReservePrice; // the blinded bidding price of the provider
-    uint guaranteeDeposit; // this is the deposit money to guarantee providers/customer will sign the SLA after win the bids, avoids bad intention bids or publish
-
-
-
-
-        
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,27 +52,47 @@ contract CloudAuction {
 
 
     // check whether it is a registered provider
-    modifier checkProvider(address _provider){
+    modifier checkProvider(address _provider)
+    {
         require(providerCrowd[_provider].registered);
-        "The provider is not registered for auction.";
+        "The provider is not registered for the auction";
     }
 
-    modifier checkProviderReputation () { 
-            require (reputation > 0); 
-            _; 
-        }
+    // check the Provider's Reputation
+    modifier checkProviderReputation () 
+    { 
+        require (reputation >= 0); 
+        "the provider is not qualified to participate the auction due to bad reputation; 
+    }
+
+    // check the bidders number. the minimum biiders number is set to 2*k and can be customized later 
+    modifier checkProviderNumber() 
+    { 
+        require (providerAddrs.length > 2*k); 
+        "the number of registered providers (bidders) is not enough to start the auction";
+    }
+    
 
 
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    
+//  the constructors for two contracts respectively.
     constructor(uint _auctionTime, uint _revealTime, address payable _customer) 
         public 
     {
-        customer = _Customer;
+        customer = _customer;
         auctionEnd = now + _auctionTime;
+        revealEnd = auctionEnd + _revealTime;
+
+    }
+
+
+    constructor(uint _witnessTime, uint _revealTime,  address payable _witness) 
+        public 
+    {
+        witness = _witness;
+        witnessEnd = now + _witnessTime;
         revealEnd = auctionEnd + _revealTime;
     }
 
@@ -99,16 +118,6 @@ contract CloudAuction {
 // 
 //  event: auction end
 // 
-
-
-
-
-
-
-    function myFunction () returns(bool res) internal {
-        
-    }
-    
 
 
 
