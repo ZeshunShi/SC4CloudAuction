@@ -40,11 +40,10 @@ contract CloudAuction {
 
 
 
-    enum AuctionState { started, inviteBidsEnd, registeEnd, bidEnd, revealEnd, monitored, finished }
+    enum AuctionState { fresh, started, publishEnd, registeEnd, bidEnd, revealEnd, monitored, finished }
   
     ////this is to log event that _who modified the Auction state to _newstate at time stamp _time
     event AuctionStateModified(address indexed _who, uint _time, State _newstate);
-    emit SLAStateModified(msg.sender, now, State.published);
     emit SLAStateModified(msg.sender, now, State.registered);
     emit SLAStateModified(msg.sender, now, State.biddingEnd);
     emit SLAStateModified(msg.sender, now, State.revealEnd);
@@ -81,26 +80,46 @@ contract CloudAuction {
 
 
    /**
-     * Customer Interface::
-     * This is for the providers to bid for the auction goods (service)
+     * Customer Interface:
+     * This is for the customer to set up the auction and wait for the providers to bid 
      * */
-    function submitBids () 
+    function setupAuction (string _serviceDetails) 
         public
         payable
+        checkCustomer(msg.sender)
+        checkDeposit() // check deposit money
+        checkState(AuctionState.fresh) // auction state 
+    {
+            
+        serviceDetails = _serviceDetails;
+        emit SLAStateModified(msg.sender, now, State.published);
+
+    }
+
+   /**
+     * Customer Interface::
+     * This is for the customer to cancel the auction
+     * */
+    function cancelAuction () 
+        public
+        payable
+        checkState(AuctionState.fresh)
         checkCustomer(msg.sender)
         checkTimeBefore(biddingEnd)
         checkTimeAfter(registeEnd)
     {
-        
+        serviceDetails = _serviceDetails;
     }
+
 
     /**
      * Normal User Interface::
      * This is for the normal user to register as a Cloud provider in the auction game
      * */
-    function providerRegister () 
+    function bidderRegister () 
         public
         checkProviderNotRegistered(msg.sender)
+        checkServiceInformation
         view
         returns(bool success) 
     {
@@ -116,7 +135,7 @@ contract CloudAuction {
     function auctionStart () 
         public
         checkServiceInformation
-        checkProviderNumber
+        checkProviderNumber(2*k)
     {
         require (!auctionStarted);
         auctionStarted = true; 
@@ -164,10 +183,10 @@ contract CloudAuction {
         "The provider is not qualified to participate the auction due to bad reputation; 
     }
 
-    // check the bidders number. the minimum biiders number is set to 2*k and can be customized later 
-    modifier checkProviderNumber() 
+    // check the bidders number. The minimum biiders number is set to 2*k and can be customized later 
+    modifier checkProviderNumber(uint _amount) 
     { 
-        require (providerAddrs.length > 2*k); 
+        require (providerAddrs.length > _amount); 
         "The number of registered providers (bidders) is not enough to start the auction";
     }
 
@@ -187,6 +206,16 @@ contract CloudAuction {
     {    
         require(Provider[_user].registered);
         "The current user is not a registered provider";
+    }
+
+    modifier checkDeposit(uint _money) {
+        require(msg.value == _money);
+        _;
+    }
+
+    modifier checkDeposit(uint _money) {
+        require(msg.value == _money);
+        _;
     }
 
 
@@ -277,6 +306,8 @@ contract witness {
     
   }
 }
+
+
 
 
 
