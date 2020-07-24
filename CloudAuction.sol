@@ -93,9 +93,10 @@ contract MultiCloudAuction {
         checkDeposit(depositPrice)
         checkState(AuctionState.fresh) 
     {
-        require (_sealedReservePrice > 0);    
+        require (_sealedReservePrice > 0);  
+        sealedReservePrice = _sealedReservePrice;  
         auctionDetails = _auctionDetails;
-        guaranteeDeposit += msg.value; 
+        guaranteeDeposit += msg.value;  // customize the value
         emit AuctionStateModified(msg.sender, now, State.published);
     }
 
@@ -137,11 +138,10 @@ contract MultiCloudAuction {
     }
     
 
-
     function auctionStart () 
         public
         checkServiceInformation
-        checkProviderNumber(2*k)
+        checkBidderNumber(2*k)
     {
         require (!auctionStarted);
         if (providerAddrs.length <= 2*k && providerAddrs.length >= k)
@@ -149,7 +149,6 @@ contract MultiCloudAuction {
             auctionStarted = true; 
         }
         emit AuctionStateModified(msg.sender, now, State.started);    
-
     }
 
    /**
@@ -178,22 +177,27 @@ contract MultiCloudAuction {
      * Providers Interface::
      * This is for the providers to reveal the bids
      * */
-    function reveal (byte32 _sealedReservePrice,  bytes32 _sealedBid, uint _customerPassword, uint _providerPassword)
+    function reveal (byte32 _reservePrice, bytes32[] _Bid, uint _customerPassword, uint _providerPassword)
         public
         payable
         checkTimeAfter(bidEnd)
         checkTimeBefore(revealEnd)
-        checkProviderOrCustomer(msg.sender)
     {
-        uint length = 
-        if(keccak256(abi.encodePacked(_sealedReservePrice, _customerPassword)) == sealedBids[msg.sender])
+
+        // iterate all the bids
+        uint length = sealedBids[].length;
+        uint refund;
+        for (uint i =0; i <length; i++){
+
+        }
+        if(keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == sealedReservePrice)
         {
 
         }
 
 
 
-        if(keccak256(abi.encodePacked(_sealedBid,_providerPassword)) == sealedBids[msg.sender]){}
+        if(keccak256(abi.encodePacked(_Bid, _providerPassword)) == sealedBids[msg.sender]){}
         
     }
 
@@ -224,7 +228,7 @@ contract MultiCloudAuction {
     }
 
     // check the bidders number. The minimum biiders number is set to 2*k and can be customized later 
-    modifier checkProviderNumber(uint _amount) 
+    modifier checkBidderNumber(uint _amount) 
     { 
         require (providerAddrs.length > _amount); 
         "The number of registered providers (bidders) is not enough to start the auction";
