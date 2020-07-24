@@ -17,7 +17,7 @@ contract CloudAuction {
 
 
     string public serviceDetails; // the details of the service requirements
-    uint8 public k; // how many providers the customer need for the auction game
+    uint8 public amount; // how many providers the customer need for the auction game
     
     bytes32 public blindedBid; // the blinded bidding price of the provider 
     bytes32 public blindedReservePrice; // the blinded reservce price of the customer
@@ -87,11 +87,12 @@ contract CloudAuction {
         public
         payable
         checkCustomer(msg.sender)
-        checkDeposit() // check deposit money
-        checkState(AuctionState.fresh) // auction state 
+        checkDeposit()
+        checkState(AuctionState.fresh) 
     {
             
         serviceDetails = _serviceDetails;
+        depositPrice += msg.value;
         emit SLAStateModified(msg.sender, now, State.published);
 
     }
@@ -105,10 +106,14 @@ contract CloudAuction {
         payable
         checkState(AuctionState.fresh)
         checkCustomer(msg.sender)
-        checkTimeBefore(biddingEnd)
-        checkTimeAfter(registeEnd)
+        checkTimeBefore(started)
     {
-        serviceDetails = _serviceDetails;
+        if(depositPrice > 0)
+        {
+            msg.sender.transfer(depositPrice);
+            depositPrice = 0;
+        }      
+        SLAState = State.Fresh;
     }
 
 
@@ -138,24 +143,38 @@ contract CloudAuction {
         checkProviderNumber(2*k)
     {
         require (!auctionStarted);
-        auctionStarted = true; 
+        if (providerAddrs.length <= 2*k && providerAddrs.length >= k)
+        {
+            auctionStarted = true; 
+        }
         emit auctionStarted(msg.sender, now);        
     }
 
    /**
      * Providers Interface::
-     * This is for the providers to bid for the auction goods (service)
+     * This is for the providers to bid (blinded) for the auction goods (service)
      * */
-    function submitBids () 
+    function submitBids (bytes32 _blindedBid) 
         public
         payable
-        checkTimeBefore(biddingEnd)
         checkTimeAfter(registeEnd)
+        checkTimeBefore(bidEnd)
         checkProvider(msg.sender)
     {
-        
+        sealedBids[msg.sender] = _blindedBid;
+        escrowedFunds[msg.sender] = msg.value;   // check how to define the amount msg.value
     }
-    
+
+
+    function reveal (bytes32 _blindedBid)
+        public
+        payable
+        checkTimeAfter(bidEnd)
+        checkTimeBefore(revealEnd)
+        checkProvider(msg.sender)
+    {
+
+    }
 
 
     
@@ -223,7 +242,7 @@ contract CloudAuction {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    event auctionStarted(address _who, uint _time)
+    event AuctionStarted(address _who, uint _time)
     event AuctionEnded(address winner, uint highestBid);
 
 
