@@ -12,7 +12,6 @@ import "./library/librarySorting.sol";
 contract MultiCloudAuction {
 
 
-    
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -84,7 +83,7 @@ contract MultiCloudAuction {
 
    /**
      * Customer Interface:
-     * This is for the customer to set up the auction and wait for the providers to bid 
+     * This is for the customer to set up the auction and wait for the providers to bid. The customer need to place a blinded reserve price with keccak256(abi.encodePacked(_reservePrice, _customerPassword))
      * */
     function setupAuction (string _auctionDetails, uint _sealedReservePrice) 
         public
@@ -153,7 +152,7 @@ contract MultiCloudAuction {
 
    /**
      * Providers Interface::
-     * This is for the providers to bid (sealed) for the auction goods (service)
+     * This is for the providers to bid (sealed) for the auction goods (service). Place a blinded bid with keccak256(abi.encodePacked(_bid, _providerPassword)), this action can be done off chain.
      * */
     function submitBids (bytes32 _sealedBid) 
         public
@@ -173,33 +172,59 @@ contract MultiCloudAuction {
         }       
     }
 
-   /**
-     * Providers Interface::
-     * This is for the providers to reveal the bids
-     * */
-    function reveal (byte32 _reservePrice, bytes32[] _Bid, uint _customerPassword, uint _providerPassword)
+    function revealCustomer (byte32 _reservePrice, uint _customerPassword)
         public
         payable
         checkTimeAfter(bidEnd)
         checkTimeBefore(revealEnd)
+        checkCustomer(msg.sender)
     {
 
-        // iterate all the bids
-        uint length = sealedBids[].length;
-        uint refund;
-        for (uint i =0; i <length; i++){
-
-        }
-        if(keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == sealedReservePrice)
-        {
-
-        }
-
-
-
-        if(keccak256(abi.encodePacked(_Bid, _providerPassword)) == sealedBids[msg.sender]){}
-        
+        if(keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == sealedReservePrice){
+            reservePrice = _reservePrice;
+        }        
     }
+
+     function revealProvider (bytes32 _bid, uint _providerPassword)
+        public
+        payable
+        checkTimeAfter(bidEnd)
+        checkTimeBefore(revealEnd)
+        checkProvider(msg.sender)
+    {
+        if(keccak256(abi.encodePacked(_bid, _providerPassword)) == sealedBids[msg.sender]){
+            revealBids[msg.sender] = _bid;
+        }        
+    }
+
+
+
+    /**
+     * Sorting Interface::
+     * This is for sorting the bidding prices by ascending of  different providers
+     * */
+
+    using SortingMethods for uint[];
+    uint[] bidArray;
+
+    // this function add the bids from different providers
+    function addBids (uint[] memory _ArrayToAdd) public {
+        for (uint i=0; i< _ArrayToAdd.length; i++){
+            bidArray.push(_ArrayToAdd[i]);
+        }
+    }
+
+    function sortByPriceAscending() public returns(uint[] memory){
+        bidArray = bidArray.heapSort();
+        return bidArray;
+    }
+
+
+
+        
+
+
+
 
 
     
@@ -305,27 +330,6 @@ contract MultiCloudAuction {
 // 
 //
 
-
-
-    /**
-     * Sorting Interface::
-     * This is for sorting the bidding prices by ascending of  different providers
-     * */
-
-    using SortingMethods for uint[];
-    uint[] bidArray;
-
-    // this function add the bids from different providers
-    function addBids (uint[] memory _ArrayToAdd) public {
-        for (uint i=0; i< _ArrayToAdd.length; i++){
-            bidArray.push(_ArrayToAdd[i]);
-        }
-    }
-
-    function sortByPriceAscending() public returns(uint[] memory){
-        bidArray = bidArray.heapSort();
-        return bidArray;
-    }
 
 
     /**
