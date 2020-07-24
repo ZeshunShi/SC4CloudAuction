@@ -9,14 +9,14 @@ pragma solidity ^0.5.0;
 import "./library/librarySorting.sol";
 
 
-contract CloudAuction {
+contract MultiCloudAuction {
 
 
     
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-    string public serviceDetails; // the details of the service requirements
+    string public auctionDetails; // the details of the service requirements that need to be auctioned
     uint8 public amount; // how many providers the customer need for the auction game
     
     bytes32 public sealedBid; // the sealed bidding price of the provider 
@@ -44,11 +44,12 @@ contract CloudAuction {
   
     ////this is to log event that _who modified the Auction state to _newstate at time stamp _time
     event AuctionStateModified(address indexed _who, uint _time, State _newstate);
-    emit SLAStateModified(msg.sender, now, State.registered);
-    emit SLAStateModified(msg.sender, now, State.biddingEnd);
-    emit SLAStateModified(msg.sender, now, State.revealEnd);
-    emit SLAStateModified(msg.sender, now, State.witnessed);
-    emit SLAStateModified(msg.sender, now, State.finished);
+    emit AuctionStateModified(msg.sender, now, State.started);    
+    emit AuctionStateModified(msg.sender, now, State.registEnd);
+    emit AuctionStateModified(msg.sender, now, State.bidEnd);
+    emit AuctionStateModified(msg.sender, now, State.revealEnd);
+    emit AuctionStateModified(msg.sender, now, State.monitored);
+    emit AuctionStateModified(msg.sender, now, State.finished);
 
 
 
@@ -56,6 +57,7 @@ contract CloudAuction {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     address payable public customer;
+    uint public registeEnd;
     uint public biddingEnd;
     uint public revealEnd;
     uint public withdrawEnd;
@@ -76,6 +78,7 @@ contract CloudAuction {
         refundEnd = revealEnd + _refundTime;
 
         auctionStarted = false;
+        AuctionState = fresh;
     }
 
 
@@ -83,7 +86,7 @@ contract CloudAuction {
      * Customer Interface:
      * This is for the customer to set up the auction and wait for the providers to bid 
      * */
-    function setupAuction (string _serviceDetails, uint _sealedReservePrice) 
+    function setupAuction (string _auctionDetails, uint _sealedReservePrice) 
         public
         payable
         checkCustomer(msg.sender)
@@ -91,9 +94,9 @@ contract CloudAuction {
         checkState(AuctionState.fresh) 
     {
         require (_sealedReservePrice > 0);    
-        serviceDetails = _serviceDetails;
-        depositPrice += msg.value;  // bug
-        emit SLAStateModified(msg.sender, now, State.published);
+        auctionDetails = _auctionDetails;
+        guaranteeDeposit += msg.value; 
+        emit AuctionStateModified(msg.sender, now, State.published);
     }
 
    /**
@@ -145,7 +148,8 @@ contract CloudAuction {
         {
             auctionStarted = true; 
         }
-        emit auctionStarted(msg.sender, now);        
+        emit AuctionStateModified(msg.sender, now, State.started);    
+
     }
 
    /**
@@ -161,8 +165,13 @@ contract CloudAuction {
     {
         
         require (_sealedBid > 0);
-        sealedBids[msg.sender] = _sealedBid;
-        escrowedFunds[msg.sender] = msg.value;   // check how to define the amount msg.value
+        sealedBids[msg.sender].push = _sealedBid;
+        deposit[msg.sender] = msg.value;   // check how to define the amount msg.value
+
+        if (sealedBids.length >= k)
+        {
+            emit AuctionStateModified(msg.sender, now, State.bidEnd);
+        }       
     }
 
    /**
@@ -185,7 +194,6 @@ contract CloudAuction {
 
 
         if(keccak256(abi.encodePacked(_sealedBid,_providerPassword)) == sealedBids[msg.sender]){}
-
         
     }
 
@@ -197,7 +205,7 @@ contract CloudAuction {
     // check whether the servide information has been published
     modifier checkServiceInformation () 
     { 
-        require (serviceDetails != null && serviceDetails.length() != 0); 
+        require (auctionDetails != null && auctionDetails.length() != 0); 
         "The auction service information has not been uploaded by customer"; 
     }
     
