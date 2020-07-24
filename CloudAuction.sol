@@ -19,8 +19,8 @@ contract CloudAuction {
     string public serviceDetails; // the details of the service requirements
     uint8 public amount; // how many providers the customer need for the auction game
     
-    bytes32 public blindedBid; // the blinded bidding price of the provider 
-    bytes32 public blindedReservePrice; // the blinded reservce price of the customer
+    bytes32 public sealedBid; // the sealed bidding price of the provider 
+    bytes32 public sealedReservePrice; // the sealed reservce price of the customer
     uint public guaranteeDeposit; // this is the deposit money to guarantee providers/customer will sign the SLA after win the bids, avoids bad intention bids or publish
 
     enum ProviderState {Ready, Busy, Absent} //{ Offline, Online, Candidate, Busy }
@@ -83,18 +83,17 @@ contract CloudAuction {
      * Customer Interface:
      * This is for the customer to set up the auction and wait for the providers to bid 
      * */
-    function setupAuction (string _serviceDetails) 
+    function setupAuction (string _serviceDetails, uint _sealedReservePrice) 
         public
         payable
         checkCustomer(msg.sender)
-        checkDeposit()
+        checkDeposit(depositPrice)
         checkState(AuctionState.fresh) 
     {
-            
+        require (_sealedReservePrice > 0);    
         serviceDetails = _serviceDetails;
-        depositPrice += msg.value;
+        depositPrice += msg.value;  // bug
         emit SLAStateModified(msg.sender, now, State.published);
-
     }
 
    /**
@@ -115,7 +114,6 @@ contract CloudAuction {
         }      
         SLAState = State.Fresh;
     }
-
 
     /**
      * Normal User Interface::
@@ -152,28 +150,43 @@ contract CloudAuction {
 
    /**
      * Providers Interface::
-     * This is for the providers to bid (blinded) for the auction goods (service)
+     * This is for the providers to bid (sealed) for the auction goods (service)
      * */
-    function submitBids (bytes32 _blindedBid) 
+    function submitBids (bytes32 _sealedBid) 
         public
         payable
         checkTimeAfter(registeEnd)
         checkTimeBefore(bidEnd)
         checkProvider(msg.sender)
     {
-        sealedBids[msg.sender] = _blindedBid;
+        
+        require (_sealedBid > 0);
+        sealedBids[msg.sender] = _sealedBid;
         escrowedFunds[msg.sender] = msg.value;   // check how to define the amount msg.value
     }
 
-
-    function reveal (bytes32 _blindedBid)
+   /**
+     * Providers Interface::
+     * This is for the providers to reveal the bids
+     * */
+    function reveal (byte32 _sealedReservePrice,  bytes32 _sealedBid, uint _customerPassword, uint _providerPassword)
         public
         payable
         checkTimeAfter(bidEnd)
         checkTimeBefore(revealEnd)
-        checkProvider(msg.sender)
+        checkProviderOrCustomer(msg.sender)
     {
+        uint length = 
+        if(keccak256(abi.encodePacked(_sealedReservePrice, _customerPassword)) == sealedBids[msg.sender])
+        {
 
+        }
+
+
+
+        if(keccak256(abi.encodePacked(_sealedBid,_providerPassword)) == sealedBids[msg.sender]){}
+
+        
     }
 
 
@@ -227,6 +240,11 @@ contract CloudAuction {
         "The current user is not a registered provider";
     }
 
+    modifier checkCustomer(address _user) { 
+        require (customer = _user); 
+        "The current user is not a customer";; 
+    }
+    
     modifier checkDeposit(uint _money) {
         require(msg.value == _money);
         _;
@@ -268,7 +286,7 @@ contract CloudAuction {
 // process:
 // 1. Cloud Customer upload the service information that needs to be auctioned. (and the parameters: k, reserve price U(blind))
 // 2. Cloud providers register in the AuctionContract (reputation 0). If the number of registered providers achieve the condition (*2), then // event: auction start.
-// 3. Registered providers submit their blinded bid + bid deposit (10%).   => function sumitBid // event: bids submitted.  // set: time window, - reputation (lazy) // only 接收到的报价的数量大于k， bidding 才能结束
+// 3. Registered providers submit their sealed bid + bid deposit (10%).   => function sumitBid // event: bids submitted.  // set: time window, - reputation (lazy) // only 接收到的报价的数量大于k， bidding 才能结束
 // 4. Reveal the bids with keccak256 algorithm. // Sorting the bids by ascending, 只有当满足reserve price U的报价的数量大于k的，拍卖成功，选出winner和他们的报价。给没有中标的provider退还保证金。the bid deposit is only refunded if the bid is correctly revealed in the revealing phase. 
 // 5. Winner bidders sign the SLAs with the user, respectively.
 // 
