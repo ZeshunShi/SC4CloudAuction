@@ -96,6 +96,7 @@ contract MultiCloudAuction {
         sealedReservePrice = _sealedReservePrice;  
         auctionDetails = _auctionDetails;
         guaranteeDeposit += msg.value;  // customize the value
+        AuctionState = State.published;
         emit AuctionStateModified(msg.sender, now, State.published);
     }
 
@@ -115,7 +116,7 @@ contract MultiCloudAuction {
             msg.sender.transfer(depositPrice);
             depositPrice = 0;
         }      
-        SLAState = State.Fresh;
+        AuctionState = State.Fresh;
     }
 
     /**
@@ -185,6 +186,7 @@ contract MultiCloudAuction {
         }        
     }
 
+    // TBD: check how to iterate the mapping
      function revealProvider (bytes32 _bid, uint _providerPassword)
         public
         payable
@@ -192,11 +194,13 @@ contract MultiCloudAuction {
         checkTimeBefore(revealEnd)
         checkProvider(msg.sender)
     {
+        for () {
+
+        }
         if(keccak256(abi.encodePacked(_bid, _providerPassword)) == sealedBids[msg.sender]){
-            revealBids[msg.sender] = _bid;
+            revealedBids[msg.sender] = _bid;
         }        
     }
-
 
 
     /**
