@@ -9,7 +9,7 @@ pragma solidity ^0.5.0;
 import "./library/librarySorting.sol";
 
 
-contract MultiCloudAuction {
+contract AuctionManagement {
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -358,7 +358,7 @@ contract MultiCloudAuction {
 /**
  * The witness contract does this and that...
  */
-contract witness {
+contract AuctionSupervision {
   constructor() public {
     
   }
