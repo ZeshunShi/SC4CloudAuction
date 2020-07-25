@@ -42,27 +42,65 @@ contract AuctionManagement {
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    struct AuctionItem {
+       bytes32  sealedReservePrice;
+        string  auctionDetails;
+        uint  guaranteeDeposit; 
+    }
+    mapping(address => AuctionItem) public AuctionItemStructs;
+    address [] public customerAddresses;
+
+
+    function setupAuction (string memory _auctionDetails, bytes32 _sealedReservePrice) 
+        public
+        payable
+        // checkCustomer(msg.sender)
+        // checkDeposit(msg.value)
+        // checkState(AuctionState.fresh) 
+        returns(bool setupAuctionSuccess)
+    {
+        require (_sealedReservePrice != 0);
+        require (customerAddresses.length == 0);
+        AuctionItemStructs[msg.sender].sealedReservePrice = _sealedReservePrice;
+        AuctionItemStructs[msg.sender].auctionDetails = _auctionDetails;
+        AuctionItemStructs[msg.sender].guaranteeDeposit = msg.value;
+        customerAddresses.push(msg.sender);
+        return true;        
+    }
+     function viewCustomerLength() public view returns(uint){
+         return bidderAddresses.length;
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// register
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     struct Bid {
         bytes32 sealedBid;
+        string  providerName;
         uint deposit;
     }
     mapping(address => Bid) public bidStructs;
     address [] public bidderAddresses;
 
-    function submitBids(bytes32 _sealedBid, uint _depositPrice) 
+    function submitBids(string memory _providerName, bytes32 _sealedBid) 
         public
         payable
+        // checkProvider(msg.sender)
+        // checkDeposit(msg.value)
+        // checkState(AuctionState.fresh) 
         returns(bool submitSuccess)
     {
-        owner.transfer(msg.value); // todo: change to deposit mapping
-        // set bid valuse using our bidStructs mapping
+        require (_sealedBid != 0);
+        require (bidderAddresses.length >= 0 && bidderAddresses.length <= 20);
         bidStructs[msg.sender].sealedBid = _sealedBid;
-        // set bid deposit using our userStructs mapping
-        bidStructs[msg.sender].deposit = _depositPrice;
-        // push bidder address into bidderAddresses array
+        bidStructs[msg.sender].providerName = _providerName;
+        bidStructs[msg.sender].deposit = msg.value;
         bidderAddresses.push(msg.sender);
         return true;
 
@@ -73,9 +111,13 @@ contract AuctionManagement {
         // } 
     }
     
-     function getBalance() public view returns(uint){
-        return address(owner).balance;
+    
+     function viewBiddersLength() public view returns(uint){
+         return bidderAddresses.length;
     }
+    //  function getBalance() public view returns(uint){
+    //     return address(owner).balance;
+    // }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 }
