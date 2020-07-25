@@ -168,7 +168,7 @@ contract AuctionManagement {
 
     // mapping(address => uint256) public escrowedFunds;
     // mapping(address => uint256) public revealedBids;
-    // 
+
     function submitBids(bytes32 _sealedBid, uint _depositPrice) 
         public
         payable
@@ -197,6 +197,12 @@ contract AuctionManagement {
         return bidderAddresses;
     }
 
+    function getTotalBids () external view returns(uint memory) {
+    for (uint i=0; i<arrayLength; i++) {
+        totalBids += bidStructs[bidderAddresses[i]];
+        return totalBids;
+    }
+    }
 
     // function submitBids (bytes32 _sealedBid) 
     //     public
@@ -215,6 +221,9 @@ contract AuctionManagement {
     //         emit AuctionStateModified(msg.sender, now, State.bidEnd);
     //     }       
     // }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     function revealCustomer (byte32 _reservePrice, uint _customerPassword)
         public
