@@ -151,27 +151,70 @@ contract AuctionManagement {
         emit AuctionStateModified(msg.sender, now, State.started);    
     }
 
-   /**
-     * Providers Interface::
-     * This is for the providers to bid (sealed) for the auction goods (service). Place a blinded bid with keccak256(abi.encodePacked(_bid, _providerPassword)), this action can be done off chain.
-     * */
-    function submitBids (bytes32 _sealedBid) 
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    // This is for the providers to bid (sealed) for the auction goods (service). Place a blinded bid with keccak256(abi.encodePacked(_bid, _providerPassword)), this action can be done off chain.
+    struct Bid {
+        bytes32 sealedBid;
+        uint deposit;
+    }
+
+     mapping(address => bytes32) public bidStructs;
+     address [] public bidderAddresses;
+
+    // mapping(address => uint256) public escrowedFunds;
+    // mapping(address => uint256) public revealedBids;
+    // 
+    function submitBids(bytes32 _sealedBid, uint _depositPrice) 
         public
         payable
         checkTimeAfter(registeEnd)
         checkTimeBefore(bidEnd)
         checkProvider(msg.sender)
+        returns(bool success)
     {
-        
-        require (_sealedBid > 0);
-        sealedBids[msg.sender].push = _sealedBid;
-        deposit[msg.sender] = msg.value;   // check how to define the amount msg.value
+        this.transfer(_depositPrice);
+        // set bid valuse using our bidStructs mapping
+        bidStructs[msg.sender].sealedBid = _sealedBid;
+        // set bid deposit using our userStructs mapping
+        bidStructs[msg.sender].deposit = _depositPrice;
+        // push user address into userAddresses array
+        bidderAddresses.push(msg.sender);
 
-        if (sealedBids.length >= k)
+        // can also put into modifier in the next phase
+        if (bidderAddresses.length > k)
         {
+            return true;
             emit AuctionStateModified(msg.sender, now, State.bidEnd);
-        }       
+        } 
     }
+
+    function getAllBids() external view returns (address[] memory) {
+        return bidderAddresses;
+    }
+
+
+    // function submitBids (bytes32 _sealedBid) 
+    //     public
+    //     payable
+    //     checkTimeAfter(registeEnd)
+    //     checkTimeBefore(bidEnd)
+    //     checkProvider(msg.sender)
+    // {
+        
+    //     require (_sealedBid > 0);
+    //     sealedBids[msg.sender].push = _sealedBid;
+    //     deposit[msg.sender] = msg.value;   // check how to define the amount msg.value
+
+    //     if (sealedBids.length >= k)
+    //     {
+    //         emit AuctionStateModified(msg.sender, now, State.bidEnd);
+    //     }       
+    // }
 
     function revealCustomer (byte32 _reservePrice, uint _customerPassword)
         public
