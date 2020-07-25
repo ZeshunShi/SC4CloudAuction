@@ -162,8 +162,8 @@ contract AuctionManagement {
         bytes32 sealedBid;
         uint deposit;
     }
-
-     mapping(address => bytes32) public bidStructs;
+     mapping(address => Bid) public bidStructs;
+     
      address [] public bidderAddresses;
 
     // mapping(address => uint256) public escrowedFunds;
@@ -246,7 +246,10 @@ contract AuctionManagement {
         checkTimeBefore(revealEnd)
         checkProvider(msg.sender)
     {
-        for () {
+
+        for (uint i=0; i < bidderAddresses.length; i++) {
+            totalBids += bidStructs[bidderAddresses[i]];
+        return totalBids;
 
         }
         if(keccak256(abi.encodePacked(_bid, _providerPassword)) == sealedBids[msg.sender]){
