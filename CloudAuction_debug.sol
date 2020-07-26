@@ -3,8 +3,8 @@ pragma solidity > 0.5.0;
 contract AuctionManagement {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    address payable public owner;
-    address payable public customer;
+// phase1: initialize auction contract, set auction procedures
+    address payable public auctioneer;
     uint public initialTime;
     uint public registeEnd;
     uint public biddingEnd;
@@ -13,7 +13,7 @@ contract AuctionManagement {
     bool public auctionStarted;
     enum AuctionState { fresh, started, publishEnd, registeEnd, bidEnd, revealEnd, monitored, finished } // update with normal auction procedures 
 
-    constructor(address payable _customer, uint _registeTime, uint _biddingTime, uint _revealTime, uint _refundTime) 
+    constructor(uint _registeTime, uint _biddingTime, uint _revealTime, uint _refundTime) 
         public 
     {
         require (_registeTime > 0);
@@ -21,9 +21,7 @@ contract AuctionManagement {
         require (_revealTime > 0);
         require (_refundTime > 0);
         
-        owner = msg.sender;
-        customer = _customer;
-        
+        auctioneer = msg.sender;
         initialTime = now;
         registeEnd = initialTime + _registeTime;
         biddingEnd = registeEnd + _biddingTime;
@@ -34,24 +32,20 @@ contract AuctionManagement {
         // AuctionState = fresh;
     }
     
-    function getAuctionInformation() 
-        public
-        view
-        returns(uint, uint, uint, uint, uint)
-    {
+    function getAuctionInformation() public view returns(uint, uint, uint, uint, uint) {
         return (initialTime, registeEnd, biddingEnd, revealEnd, refundEnd);
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase2: publish auction item.
     struct AuctionItem {
        bytes32  sealedReservePrice;
         string  auctionDetails;
-        uint  guaranteeDeposit; 
+        uint  customerDeposit; 
     }
     mapping(address => AuctionItem) public AuctionItemStructs;
     address [] public customerAddresses;
-
 
     function setupAuction (string memory _auctionDetails, bytes32 _sealedReservePrice) 
         public
@@ -65,17 +59,19 @@ contract AuctionManagement {
         require (customerAddresses.length == 0);
         AuctionItemStructs[msg.sender].sealedReservePrice = _sealedReservePrice;
         AuctionItemStructs[msg.sender].auctionDetails = _auctionDetails;
-        AuctionItemStructs[msg.sender].guaranteeDeposit = msg.value;
+        AuctionItemStructs[msg.sender].customerDeposit = msg.value;
         customerAddresses.push(msg.sender);
         return true;        
     }
-    function viewCustomerLength() public view returns(uint){
+    function viewCustomerAddressesLength() public view returns(uint){
         return bidderAddresses.length;
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase3: normal user register as bidders (providers).
+
     enum ProviderState {Ready, Candidate, Absent}
     struct Bidder {
         uint id; // the id of the provider in the address pool
@@ -89,7 +85,7 @@ contract AuctionManagement {
     function bidderRegister () 
         public
         // checkProviderNotRegistered(msg.sender)
-        // checkServiceInformation
+        // checkAuctionPublished
         returns(bool success) 
     {
         providerCrowd[msg.sender].id = providerAddrs.length;
@@ -98,17 +94,19 @@ contract AuctionManagement {
         providerCrowd[msg.sender].registered = true;
         providerAddrs.push(msg.sender);
     }
-    function viewProviderLength() public view returns(uint){
+    function viewProviderAddrsLength() public view returns(uint){
         return bidderAddresses.length;
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase4: registered provoders submit sealed bids as well as deposit money.
+
     struct Bid {
         bytes32 sealedBid;
         string  providerName;
-        uint deposit;
+        uint bidderDeposit;
     }
     mapping(address => Bid) public bidStructs;
     address [] public bidderAddresses;
@@ -125,7 +123,7 @@ contract AuctionManagement {
         require (bidderAddresses.length <= 20);
         bidStructs[msg.sender].sealedBid = _sealedBid;
         bidStructs[msg.sender].providerName = _providerName;
-        bidStructs[msg.sender].deposit = msg.value;
+        bidStructs[msg.sender].bidderDeposit = msg.value;
         bidderAddresses.push(msg.sender);
         return true;
 
@@ -136,13 +134,62 @@ contract AuctionManagement {
         // } 
     }
     
-    
     function viewBiddersLength() public view returns(uint){
         return bidderAddresses.length;
     }
     //  function getBalance() public view returns(uint){
-    //     return address(owner).balance;
+    //     return address(auctioneer).balance;
     // }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase5: reveal, sorting, and pay back the deposit money.
 
+    function revealReservePrice (bytes32 _reservePrice, uint _customerPassword)
+        public
+        payable
+        // checkTimeAfter(bidEnd)
+        // checkTimeBefore(revealEnd)
+        // checkCustomer(msg.sender)
+    {
+        if(keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == sealedReservePrice){
+            reservePrice = _reservePrice;
+        }        
+    }
+        // TBD: check how to iterate the mapping
+    function revealProvider (bytes32 _bid, uint _providerPassword)
+        public
+        payable
+        checkTimeAfter(bidEnd)
+        checkTimeBefore(revealEnd)
+        checkProvider(msg.sender)
+    {
+
+        for (uint i=0; i < bidderAddresses.length; i++) {
+            totalBids += bidStructs[bidderAddresses[i]];
+        return totalBids;
+        }
+
+        if(keccak256(abi.encodePacked(_bid, _providerPassword)) == sealedBids[msg.sender]){
+            revealedBids[msg.sender] = _bid;
+        }        
+    }
+        /**
+     * Sorting Interface::
+     * This is for sorting the bidding prices by ascending of different providers
+     * */
+
+    using SortingMethods for uint[];
+    uint[] bidArray;
+
+    // this function add the bids from different providers
+    function addBids (uint[] memory _ArrayToAdd) public {
+        for (uint i=0; i< _ArrayToAdd.length; i++){
+            bidArray.push(_ArrayToAdd[i]);
+        }
+    }
+
+    function sortByPriceAscending() public returns(uint[] memory){
+        bidArray = bidArray.heapSort();
+        return bidArray;
+    }
+    
 }
