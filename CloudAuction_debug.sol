@@ -11,6 +11,7 @@ contract AuctionManagement {
     uint public revealEnd;
     uint public refundEnd;
     bool public auctionStarted;
+    enum AuctionState { fresh, started, publishEnd, registeEnd, bidEnd, revealEnd, monitored, finished } // update with normal auction procedures 
 
     constructor(address payable _customer, uint _registeTime, uint _biddingTime, uint _revealTime, uint _refundTime) 
         public 
@@ -57,7 +58,7 @@ contract AuctionManagement {
         payable
         // checkCustomer(msg.sender)
         // checkDeposit(msg.value)
-        // checkState(AuctionState.fresh) 
+        // checkState(AuctionState.fresh)
         returns(bool setupAuctionSuccess)
     {
         require (_sealedReservePrice != 0);
@@ -68,14 +69,38 @@ contract AuctionManagement {
         customerAddresses.push(msg.sender);
         return true;        
     }
-     function viewCustomerLength() public view returns(uint){
-         return bidderAddresses.length;
+    function viewCustomerLength() public view returns(uint){
+        return bidderAddresses.length;
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// register
+    enum ProviderState {Ready, Candidate, Absent}
+    struct Bidder {
+        uint id; // the id of the provider in the address pool
+        bool registered;    ///true: this provider has registered     
+        int8 reputation; //the reputation of the provider, the initial value is 0
+        ProviderState state;  // the current state of the provider
+    }
+    mapping (address => Bidder) providerCrowd;
+    address [] public providerAddrs;    ////the address pool of providers, which is used for registe new providers in the auction
+    
+    function bidderRegister () 
+        public
+        // checkProviderNotRegistered(msg.sender)
+        // checkServiceInformation
+        returns(bool success) 
+    {
+        providerCrowd[msg.sender].id = providerAddrs.length;
+        providerCrowd[msg.sender].reputation = 0;
+        providerCrowd[msg.sender].state = ProviderState.Ready;
+        providerCrowd[msg.sender].registered = true;
+        providerAddrs.push(msg.sender);
+    }
+    function viewProviderLength() public view returns(uint){
+        return bidderAddresses.length;
+    }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -97,7 +122,7 @@ contract AuctionManagement {
         returns(bool submitSuccess)
     {
         require (_sealedBid != 0);
-        require (bidderAddresses.length >= 0 && bidderAddresses.length <= 20);
+        require (bidderAddresses.length <= 20);
         bidStructs[msg.sender].sealedBid = _sealedBid;
         bidStructs[msg.sender].providerName = _providerName;
         bidStructs[msg.sender].deposit = msg.value;
@@ -112,8 +137,8 @@ contract AuctionManagement {
     }
     
     
-     function viewBiddersLength() public view returns(uint){
-         return bidderAddresses.length;
+    function viewBiddersLength() public view returns(uint){
+        return bidderAddresses.length;
     }
     //  function getBalance() public view returns(uint){
     //     return address(owner).balance;
