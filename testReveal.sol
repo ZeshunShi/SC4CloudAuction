@@ -1,14 +1,15 @@
 contract AuctionManagement {
 
     struct AuctionItem {
-       bytes32  sealedReservePrice;
-        string  auctionDetails;
-        uint  customerDeposit; 
+        string cutomerName;
+        bytes32 sealedReservePrice;
+        string auctionDetails;
+        uint customerDeposit; 
     }
     mapping(address => AuctionItem) public auctionItemStructs;
     address [] public customerAddresses;
 
-    function setupAuction (string memory _auctionDetails, bytes32 _sealedReservePrice) 
+    function setupAuction (string memory _customerName, string memory _auctionDetails, bytes32 _sealedReservePrice) 
         public
         payable
         // checkCustomer(msg.sender)
@@ -18,6 +19,7 @@ contract AuctionManagement {
     {
         require (_sealedReservePrice != 0 && bytes(_auctionDetails).length > 0);
         require (customerAddresses.length == 0);
+        auctionItemStructs[msg.sender].cutomerName = _customerName;
         auctionItemStructs[msg.sender].sealedReservePrice = _sealedReservePrice;
         auctionItemStructs[msg.sender].auctionDetails = _auctionDetails;
         auctionItemStructs[msg.sender].customerDeposit = msg.value;
@@ -26,8 +28,8 @@ contract AuctionManagement {
     }
 
     struct Bid {
+        string providerName;
         bytes32 sealedBid;
-        string  providerName;
         uint bidderDeposit;
     }
     mapping(address => Bid) public bidStructs;
@@ -51,7 +53,7 @@ contract AuctionManagement {
     }
     
     uint public reservePrice;
-    function revealReservePrice (uint _reservePrice, uint _customerPassword)
+    function revealReservePrice (string memory _customerName, uint _reservePrice, uint _customerPassword)
         public
         payable
         // checkTimeAfter(bidEnd)
@@ -61,6 +63,7 @@ contract AuctionManagement {
         returns(uint)
     {
         require (_reservePrice != 0 && _customerPassword != 0);
+        require (keccak256(abi.encodePacked(auctionItemStructs[msg.sender].cutomerName)) == keccak256(abi.encodePacked(_customerName)));
         if(keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == auctionItemStructs[msg.sender].sealedReservePrice){
             reservePrice = _reservePrice;
         }
@@ -96,28 +99,31 @@ contract AuctionManagement {
         return revealedBids;
     }
         
-    // function sortBidsByAscending () 
-    //     public
-    //     // checkTimeAfter(bidEnd)
-    //     // checkTimeBefore(revealEnd)
-    //     // checkProvider(msg.sender)
-    //     // checkBidderNumber(revealedBidders.length > 5 && revealedBids.length > 5)
-    //     returns(uint[] memory)
-    // {
-    //     require(revealedBidders.length > 5 && revealedBids.length > 5,"Insufficient reveledBids/revealedBidders to sort");
-    //     bool swapped;
-    //     uint i;
-    //     uint j;  
-    //     for (uint i=0; i < revealedBids.length - 1; i++) {
-    //         swapped = false;
-    //         for (j =0; j < revealedBids.length-i-1; j++){
-    //             if (revealedBids[j] > revealedBids[j+1]){
-    //                 (revealedBids[j], revealedBids[j+1]) = (revealedBids[j+1], revealedBids[j]);
-    //                 (revealedBidders[j], revealedBidders[j+1]) = (revealedBidders[j+1], revealedBidders[j]);
-    //                 swapped = true;
-    //             }
-    //         }
-    //             if(swapped==false) break;
-    //     }
-    // }
+    function sortBidsByAscending () 
+        public
+        // checkTimeAfter(bidEnd)
+        // checkTimeBefore(revealEnd)
+        // checkProvider(msg.sender)
+        // checkBidderNumber(revealedBidders.length > 5)
+        returns(uint[] memory)
+    {
+        bool exchanged;
+        uint i;
+        uint j;  
+        for (uint i=0; i < revealedBids.length - 1; i++) {
+            exchanged = false;
+            for (j =0; j < revealedBids.length-i-1; j++){
+                if (revealedBids[j] > revealedBids[j+1]){
+                    (revealedBids[j], revealedBids[j+1]) = (revealedBids[j+1], revealedBids[j]);
+                    (revealedBidders[j], revealedBidders[j+1]) = (revealedBidders[j+1], revealedBidders[j]);
+                    exchanged = true;
+                }
+            }
+                if(exchanged==false) break;
+        }
+    }
+    
+    
+    
+    
 }
