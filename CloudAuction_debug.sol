@@ -72,14 +72,14 @@ contract AuctionManagement {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase3: normal user register as bidders (providers).
 
-    enum ProviderState {Ready, Candidate, Absent}
+    enum ProviderState { Ready, Candidate, Absent }
     struct Bidder {
         uint id; // the id of the provider in the address pool
         bool registered;    ///true: this provider has registered     
         int8 reputation; //the reputation of the provider, the initial value is 0
         ProviderState state;  // the current state of the provider
     }
-    mapping (address => Bidder) providerCrowd;
+    mapping (address => Bidder) public providerCrowd;
     address [] public providerAddrs;    ////the address pool of providers, which is used for registe new providers in the auction
     
     function bidderRegister () 
@@ -143,53 +143,53 @@ contract AuctionManagement {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase5: reveal, sorting, and pay back the deposit money.
 
-    function revealReservePrice (bytes32 _reservePrice, uint _customerPassword)
-        public
-        payable
-        // checkTimeAfter(bidEnd)
-        // checkTimeBefore(revealEnd)
-        // checkCustomer(msg.sender)
-    {
-        if(keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == sealedReservePrice){
-            reservePrice = _reservePrice;
-        }        
-    }
+    // function revealReservePrice (bytes32 _reservePrice, uint _customerPassword)
+    //     public
+    //     payable
+    //     // checkTimeAfter(bidEnd)
+    //     // checkTimeBefore(revealEnd)
+    //     // checkCustomer(msg.sender)
+    // {
+    //     if(keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == sealedReservePrice){
+    //         reservePrice = _reservePrice;
+    //     }        
+    // }
         // TBD: check how to iterate the mapping
-    function revealProvider (bytes32 _bid, uint _providerPassword)
-        public
-        payable
-        checkTimeAfter(bidEnd)
-        checkTimeBefore(revealEnd)
-        checkProvider(msg.sender)
-    {
+    // function revealProvider (bytes32 _bid, uint _providerPassword)
+    //     public
+    //     payable
+    //     checkTimeAfter(bidEnd)
+    //     checkTimeBefore(revealEnd)
+    //     checkProvider(msg.sender)
+    // {
 
-        for (uint i=0; i < bidderAddresses.length; i++) {
-            totalBids += bidStructs[bidderAddresses[i]];
-        return totalBids;
-        }
+    //     for (uint i=0; i < bidderAddresses.length; i++) {
+    //         totalBids += bidStructs[bidderAddresses[i]];
+    //     return totalBids;
+    //     }
 
-        if(keccak256(abi.encodePacked(_bid, _providerPassword)) == sealedBids[msg.sender]){
-            revealedBids[msg.sender] = _bid;
-        }        
-    }
-        /**
-     * Sorting Interface::
-     * This is for sorting the bidding prices by ascending of different providers
-     * */
+    //     if(keccak256(abi.encodePacked(_bid, _providerPassword)) == sealedBids[msg.sender]){
+    //         revealedBids[msg.sender] = _bid;
+    //     }        
+    // }
+    //     /**
+    //  * Sorting Interface::
+    //  * This is for sorting the bidding prices by ascending of different providers
+    //  * */
 
-    using SortingMethods for uint[];
-    uint[] bidArray;
+    // using SortingMethods for uint[];
+    // uint[] bidArray;
 
-    // this function add the bids from different providers
-    function addBids (uint[] memory _ArrayToAdd) public {
-        for (uint i=0; i< _ArrayToAdd.length; i++){
-            bidArray.push(_ArrayToAdd[i]);
-        }
-    }
+    // // this function add the bids from different providers
+    // function addBids (uint[] memory _ArrayToAdd) public {
+    //     for (uint i=0; i< _ArrayToAdd.length; i++){
+    //         bidArray.push(_ArrayToAdd[i]);
+    //     }
+    // }
 
-    function sortByPriceAscending() public returns(uint[] memory){
-        bidArray = bidArray.heapSort();
-        return bidArray;
-    }
+    // function sortByPriceAscending() public returns(uint[] memory){
+    //     bidArray = bidArray.heapSort();
+    //     return bidArray;
+    // }
     
 }
