@@ -103,8 +103,8 @@ contract AuctionManagement {
         public
         // checkTimeAfter(bidEnd)
         // checkTimeBefore(revealEnd)
-        // checkProvider(msg.sender)
-        // checkBidderNumber(revealedBidders.length > 5)
+        // checkAuctioner(msg.sender)
+        // checkBidderNumber(revealedBidders.length > k)
         returns(uint[] memory)
     {
         bool exchanged;
@@ -121,7 +121,28 @@ contract AuctionManagement {
             }
                 if(exchanged==false) break;
         }
+        return revealedBids;
     }
+    
+    // delete last n-k elements, and pay back the money to k+1-n, sum <= reservePrice
+        address [] public selectedBidders;
+        uint [] public selectedBids;
+        uint m;
+        uint n; 
+        
+        for (uint m=0; m < k; m++) {
+            selectedBids[i]=revealedBids[i];
+            selectedBidders[i]=revealedBidders[i];
+        }
+        // no need to loop
+        mapping(address => uint) refund;
+        for (uint n=k+1; n < revealedBidders.length - 1; n++) {
+            addr = revealedBidders[k];
+            refund[msg.sender] = bidStructs[msg.sender].bidderDeposit;
+            refund += bidStructs[msg.sender].bidderDeposit;
+            msg.sender.transfer(refund[msg.sender]);
+
+        }
     
     
     
