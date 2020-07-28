@@ -19,6 +19,7 @@ contract AuctionManagement {
     {
         require (_sealedReservePrice != 0 && bytes(_auctionDetails).length > 0);
         require (customerAddresses.length == 0);
+        require (msg.value >= 10);
         auctionItemStructs[msg.sender].cutomerName = _customerName;
         auctionItemStructs[msg.sender].sealedReservePrice = _sealedReservePrice;
         auctionItemStructs[msg.sender].auctionDetails = _auctionDetails;
@@ -45,6 +46,7 @@ contract AuctionManagement {
     {
         require (_sealedBid != 0 && bytes(_providerName).length > 0);   
         require (bidderAddresses.length <= 20);
+        require (msg.value >= 10);
         bidStructs[msg.sender].sealedBid = _sealedBid;
         bidStructs[msg.sender].providerName = _providerName;
         bidStructs[msg.sender].bidderDeposit = msg.value;
@@ -64,14 +66,15 @@ contract AuctionManagement {
     {
         require (_reservePrice != 0 && _customerPassword != 0);
         require (keccak256(abi.encodePacked(auctionItemStructs[msg.sender].cutomerName)) == keccak256(abi.encodePacked(_customerName)));
-        if(keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == auctionItemStructs[msg.sender].sealedReservePrice){
+        if (keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == auctionItemStructs[msg.sender].sealedReservePrice){
             reservePrice = _reservePrice;
         }
         return reservePrice;
     }
     
-    address [] public revealedBidders;
+    address payable [] public revealedBidders;
     uint [] public revealedBids;
+
     // mapping(address => uint) public revealedBids;
     
     function revealBids (string memory _providerName, uint _bid, uint _providerPassword)
@@ -84,20 +87,28 @@ contract AuctionManagement {
     {
         require (_bid != 0 && _providerPassword != 0);
         require (keccak256(abi.encodePacked(bidStructs[msg.sender].providerName)) == keccak256(abi.encodePacked(_providerName)));
-        if(keccak256(abi.encodePacked(_bid, _providerPassword)) == bidStructs[msg.sender].sealedBid){
+        if (keccak256(abi.encodePacked(_bid, _providerPassword)) == bidStructs[msg.sender].sealedBid){
             // revealedBids[msg.sender] = _bid;
             revealedBidders.push(msg.sender);
             revealedBids.push(_bid);
         }
     }
     
-    function test1() public view returns(address[] memory){
+    function test1() public view returns(address payable [] memory){
         return revealedBidders;
     }
     
     function test2() public view returns(uint[] memory){
         return revealedBids;
     }
+
+
+
+    address payable [] public winnerBidders;
+    address payable [] public loserBidders;
+    uint [] public winnerBids;
+    uint [] public loserBids;
+    mapping(address => uint) refund;
         
     function sortBidsByAscending () 
         public
@@ -105,7 +116,7 @@ contract AuctionManagement {
         // checkTimeBefore(revealEnd)
         // checkAuctioner(msg.sender)
         // checkBidderNumber(revealedBidders.length > k)
-        returns(uint[] memory)
+        returns(address payable [] memory)
     {
         bool exchanged;
         uint i;
@@ -121,29 +132,31 @@ contract AuctionManagement {
             }
                 if(exchanged==false) break;
         }
-        return revealedBids;
-    }
-    
-    // delete last n-k elements, and pay back the money to k+1-n, sum <= reservePrice
-        address [] public selectedBidders;
-        uint [] public selectedBids;
+        return revealedBidders;
+        
         uint m;
         uint n; 
+        for (uint m=0; m < 2; m++) {
+            winnerBids[m]=revealedBids[m];
+            winnerBidders[m]=revealedBidders[m];
+        }
+        return winnerBidders;
         
-        for (uint m=0; m < k; m++) {
-            selectedBids[i]=revealedBids[i];
-            selectedBidders[i]=revealedBidders[i];
+        uint sumBids;
+        for(uint t=0;t < winnerBids.length;t++){
+            sumBids += winnerBids[t];
         }
-        // no need to loop
-        mapping(address => uint) refund;
-        for (uint n=k+1; n < revealedBidders.length - 1; n++) {
-            addr = revealedBidders[k];
-            refund[msg.sender] = bidStructs[msg.sender].bidderDeposit;
-            refund += bidStructs[msg.sender].bidderDeposit;
-            msg.sender.transfer(refund[msg.sender]);
-
+        require(sumBids < reservePrice);
+        for (uint n=2; n < revealedBidders.length - 1; n++) {
+            loserBids.push() = revealedBids[n];
+            loserBidders.push() = revealedBidders[n];
+        }            
+        return loserBidders;
+        for (uint o=0; o < loserBidders.length - 1; o++) {
+            refund[loserBidders[o]] = bidStructs[loserBidders[o]].bidderDeposit;
+            loserBidders[o].transfer(refund[loserBidders[o]]);
         }
-    
+    }
     
     
     
