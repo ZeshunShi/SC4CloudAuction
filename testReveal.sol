@@ -97,10 +97,6 @@ contract AuctionManagement {
     function test1() public view returns(address payable [] memory, uint[] memory){
         return (revealedBidders,revealedBids);
     }
-    
-    // function test2() public view returns(uint[] memory){
-    //     return revealedBids;
-    // }
 
 
 
@@ -134,28 +130,46 @@ contract AuctionManagement {
         }
         // return revealedBidders;
         
-        uint m;
-        uint n; 
-        for (uint m=0; m < 2; m++) {
-            winnerBids[m]=revealedBids[m];
-            winnerBidders[m]=revealedBidders[m];
-        }
-        return winnerBidders;
+        // for (uint i=0; i < 2; i++) {
+        //     winnerBids.push() = revealedBids[i];
+        //     winnerBidders.push() = revealedBidders[i];
+        // }
+        // // return winnerBidders;
+        // for (uint i=2; i < revealedBidders.length; i++) {
+        //     loserBids.push() = revealedBids[i];
+        //     loserBidders.push() = revealedBidders[i];
+        // }     
+        // return loserBidders;
+        
+        for (uint i=0; i < revealedBidders.length; i++) {
+            if( i< 2 && sumBids < reservePrice) {
+                winnerBids.push() = revealedBids[i];
+                winnerBidders.push() = revealedBidders[i];
+            } else if( i >= 2 && sumBids < reservePrice){
+                loserBids.push() = revealedBids[i];
+                loserBidders.push() = revealedBidders[i];
+            } else {
+                loserBids.push() = revealedBids[i];
+                loserBidders.push() = revealedBidders[i];
+            } 
         
         // uint sumBids;
-        // for(uint t=0;t < winnerBids.length;t++){
-        //     sumBids += winnerBids[t];
+        // for(uint i=0; i < winnerBids.length; i++){
+        //     sumBids += winnerBids[i];
         // }
-        // require(sumBids < reservePrice);
-        // for (uint n=2; n < revealedBidders.length - 1; n++) {
-        //     loserBids.push() = revealedBids[n];
-        //     loserBidders.push() = revealedBidders[n];
-        // }            
-        // // return loserBidders;
+        // require(sumBids < reservePrice);  // pay back to everybody, restart the auction
+        
+
         // for (uint o=0; o < loserBidders.length - 1; o++) {
         //     refund[loserBidders[o]] = bidStructs[loserBidders[o]].bidderDeposit;
         //     loserBidders[o].transfer(refund[loserBidders[o]]);  // check bug
         // }
+    }
+    function test2() public view returns(address payable [] memory, uint[] memory){
+        return (winnerBidders,winnerBids);
+    }
+    function test3() public view returns(address payable [] memory, uint[] memory){
+        return (loserBidders,loserBids);
     }
     
     
