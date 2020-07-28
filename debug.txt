@@ -10,10 +10,10 @@
 ("Amazon","0xbb9372274dcd74f6b8fcd7ab8351ad96e3e60a2a18c28043ae98ec6eedee4a5c")
 ("EGI","0xcdc95244ae7e9b72b452f85648a6e07a9abc76cc4f8bc664ada4927f904894f8")
 
-// Customer: revealReservePrice (改成auctioneer怎么样？用loop)
+// Customer(Auctioneer): revealReservePrice 
 ("zeshun","100","123456")
 
-// Provider: revealBids (改成auctioneer怎么样？)
+// Provider(Auctioneer): revealBids
 ("ExoGENI","98","456")
 ("Amazon","97","123")
 ("EGI","99","789")

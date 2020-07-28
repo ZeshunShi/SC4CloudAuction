@@ -139,31 +139,34 @@ contract AuctionManagement {
         //     loserBids.push() = revealedBids[i];
         //     loserBidders.push() = revealedBidders[i];
         // }     
-        // return loserBidders;
+
+        uint sumBids;
+        for(uint i=0; i < 5; i++){
+            sumBids += revealedBids[i];
+        }
+        require(sumBids < reservePrice, "The lowest k bids do not meet the requirements of the customer, auction failed.");  // pay back to everybody, restart the auction
         
         for (uint i=0; i < revealedBidders.length; i++) {
-            if( i< 2 && sumBids < reservePrice) {
+            if( i< 5 && sumBids <= reservePrice) {
                 winnerBids.push() = revealedBids[i];
                 winnerBidders.push() = revealedBidders[i];
-            } else if( i >= 2 && sumBids < reservePrice){
+            } else if( i >= 5 && sumBids <= reservePrice){
                 loserBids.push() = revealedBids[i];
                 loserBidders.push() = revealedBidders[i];
-            } else {
+            } else if( sumBids > reservePrice){
                 loserBids.push() = revealedBids[i];
                 loserBidders.push() = revealedBidders[i];
-            } 
-        
-        // uint sumBids;
-        // for(uint i=0; i < winnerBids.length; i++){
-        //     sumBids += winnerBids[i];
-        // }
-        // require(sumBids < reservePrice);  // pay back to everybody, restart the auction
-        
+            }
+        }
+        return loserBidders;
+        return winnerBidders;
 
-        // for (uint o=0; o < loserBidders.length - 1; o++) {
-        //     refund[loserBidders[o]] = bidStructs[loserBidders[o]].bidderDeposit;
-        //     loserBidders[o].transfer(refund[loserBidders[o]]);  // check bug
+
+        // for (uint i=0; i < loserBidders.length - 1; i++) {
+        //     refund[loserBidders[i]] = bidStructs[loserBidders[i]].bidderDeposit;
+        //     loserBidders[i].transfer(refund[loserBidders[i]]);  // check bug
         // }
+
     }
     function test2() public view returns(address payable [] memory, uint[] memory){
         return (winnerBidders,winnerBids);
