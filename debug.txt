@@ -2,28 +2,32 @@
 ("0x67A0dB2b9C57A84b6A4aD6d28AabD474C2A79569", "5","10","15","20")
 ("5","10","15","20")
 
-// Customer: setupAuction
+// Customer: setupAuction && set msg.value >= 10
 ("zeshun", "This service is about ...","0xfd7ac46134993eea725314683332cfff3d1239370afb5c7f01e7970843118d78")
 
-// Provider: submitBids
+// Provider: submitBids && set msg.value >= 10
 ("ExoGENI","0x604ead9fe001972dbd031153a1532fcaa5724a33bebdca1fd82baf7d8f9b5b1c")
 ("Amazon","0xbb9372274dcd74f6b8fcd7ab8351ad96e3e60a2a18c28043ae98ec6eedee4a5c")
 ("EGI","0xcdc95244ae7e9b72b452f85648a6e07a9abc76cc4f8bc664ada4927f904894f8")
 
-// Customer: revealReservePrice
+// Customer: revealReservePrice (改成auctioneer怎么样？用loop)
 ("zeshun","100","123456")
 
-// Provider: revealBids
+// Provider: revealBids (改成auctioneer怎么样？)
 ("ExoGENI","98","456")
 ("Amazon","97","123")
 ("EGI","99","789")
 
-return:
-address[]: 0x4B0897b0513fdC7C541B6d9D7E929C4e5364D2dB,0x583031D1113aD414F02576BD6afaBfb302140225,0xdD870fA1b7C4700F2BD7f44238821C26f7392148
+// Any User: test1
+0:
+address[]: 0xdD870fA1b7C4700F2BD7f44238821C26f7392148,0x583031D1113aD414F02576BD6afaBfb302140225,0x4B0897b0513fdC7C541B6d9D7E929C4e5364D2dB
+1:
 uint256[]: 98,97,99
 
-// Provider: sortBidsByAscending
-address[]: 0x583031D1113aD414F02576BD6afaBfb302140225,0x4B0897b0513fdC7C541B6d9D7E929C4e5364D2dB,0xdD870fA1b7C4700F2BD7f44238821C26f7392148
+// Auctioneer: sortBidsByAscending
+0:
+address[]: 0x583031D1113aD414F02576BD6afaBfb302140225,0xdD870fA1b7C4700F2BD7f44238821C26f7392148,0x4B0897b0513fdC7C541B6d9D7E929C4e5364D2dB
+1:
 uint256[]: 97,98,99
 
 
