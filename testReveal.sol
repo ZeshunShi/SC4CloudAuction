@@ -94,13 +94,13 @@ contract AuctionManagement {
         }
     }
     
-    function test1() public view returns(address payable [] memory){
-        return revealedBidders;
+    function test1() public view returns(address payable [] memory, uint[] memory){
+        return (revealedBidders,revealedBids);
     }
     
-    function test2() public view returns(uint[] memory){
-        return revealedBids;
-    }
+    // function test2() public view returns(uint[] memory){
+    //     return revealedBids;
+    // }
 
 
 
@@ -114,7 +114,7 @@ contract AuctionManagement {
         public
         // checkTimeAfter(bidEnd)
         // checkTimeBefore(revealEnd)
-        // checkAuctioner(msg.sender)
+        // checkAuctioner(msg.sender = owner)
         // checkBidderNumber(revealedBidders.length > k)
         returns(address payable [] memory)
     {
@@ -132,7 +132,7 @@ contract AuctionManagement {
             }
                 if(exchanged==false) break;
         }
-        return revealedBidders;
+        // return revealedBidders;
         
         uint m;
         uint n; 
@@ -142,20 +142,20 @@ contract AuctionManagement {
         }
         return winnerBidders;
         
-        uint sumBids;
-        for(uint t=0;t < winnerBids.length;t++){
-            sumBids += winnerBids[t];
-        }
-        require(sumBids < reservePrice);
-        for (uint n=2; n < revealedBidders.length - 1; n++) {
-            loserBids.push() = revealedBids[n];
-            loserBidders.push() = revealedBidders[n];
-        }            
-        return loserBidders;
-        for (uint o=0; o < loserBidders.length - 1; o++) {
-            refund[loserBidders[o]] = bidStructs[loserBidders[o]].bidderDeposit;
-            loserBidders[o].transfer(refund[loserBidders[o]]);
-        }
+        // uint sumBids;
+        // for(uint t=0;t < winnerBids.length;t++){
+        //     sumBids += winnerBids[t];
+        // }
+        // require(sumBids < reservePrice);
+        // for (uint n=2; n < revealedBidders.length - 1; n++) {
+        //     loserBids.push() = revealedBids[n];
+        //     loserBidders.push() = revealedBidders[n];
+        // }            
+        // // return loserBidders;
+        // for (uint o=0; o < loserBidders.length - 1; o++) {
+        //     refund[loserBidders[o]] = bidStructs[loserBidders[o]].bidderDeposit;
+        //     loserBidders[o].transfer(refund[loserBidders[o]]);  // check bug
+        // }
     }
     
     
