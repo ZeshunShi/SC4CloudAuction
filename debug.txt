@@ -3,20 +3,36 @@
 ("5","10","15","20")
 
 // Customer: setupAuction && set msg.value >= 10
-("zeshun", "This service is about ...","0xfd7ac46134993eea725314683332cfff3d1239370afb5c7f01e7970843118d78")
+("zeshun", "This service is about ...","0x9b5dc0fe62a6e1ff06e478a25da9abe6af03f56e2e734394be0057289380c40f")
 
 // Provider: submitBids && set msg.value >= 10
-("ExoGENI","0x604ead9fe001972dbd031153a1532fcaa5724a33bebdca1fd82baf7d8f9b5b1c")
-("Amazon","0xbb9372274dcd74f6b8fcd7ab8351ad96e3e60a2a18c28043ae98ec6eedee4a5c")
-("EGI","0xcdc95244ae7e9b72b452f85648a6e07a9abc76cc4f8bc664ada4927f904894f8")
+("Amazon","0x8cb658862a07de743ed47ee120cb6d2b7dbf90b521061693c76f455b3ebbc94f")
+("Azure","0x99aafb3761bc90c5a96a658ae5f32e1b438581051d8fe2d050011a3f827d092d")
+("EGI","0x9851fe020de88ea1e88ee084bf00f99b2d8092c2a74655e230cc1bce27df3a2a")
+("ExoGENI","0x351d4e482dfc54c9e50ccccec8a0384100635b57a4e0aabf8f1cae32b14acbc2")
+("Alibaba","0x74d55189d5b61b40e11cc4998271fb2e77aee824f46b707feeee49a9db4d49c3")
+("Google","0x9c222212b5cb6cae92e89025c7f599a4b76ee47386970d43f8565cd65a5190cf")
+("IBM","0x9ef76bb48ab06d2ebd1922ef1a765bdb4929bbd0842ec12517749d6f1d0c798b")
+("Oracle","0xe7fb83706458ad2dc6da0015a8cafc8fca78e2754e658c8b308415e3bb063c81")
+("DigitalOcean","0xba0377c34d4522bd29edccdbd8324c3d5fd06c2ab4d472dd9a67939093e53e5b")
+("VMware","0x72c829b6ff1176aa52fa1b14a601e30df23c347f3efcd72b6af910346dd8917d")
+
 
 // Customer(Auctioneer): revealReservePrice 
-("zeshun","100","123456")
+("zeshun","500","123456")
 
 // Provider(Auctioneer): revealBids
-("ExoGENI","98","456")
-("Amazon","97","123")
-("EGI","99","789")
+("Amazon","91","1111")
+("Azure","97","7777")
+("EGI","99","9999")
+("ExoGENI","96","6666")
+("Alibaba","95","5555")
+("Google","98","8888")
+("IBM","93","3333")
+("Oracle","92","2222")
+("DigitalOcean","94","4444")
+("VMware","90","0000")
+
 
 // Any User: test1
 0:
@@ -34,14 +50,32 @@ uint256[]: 97,98,99
 
 ////////////////////////////////////////////////////////////////////////////////// 
 // hash contract: customer
-("100","123456")
-0xfd7ac46134993eea725314683332cfff3d1239370afb5c7f01e7970843118d78
+("500","123456")
+0x9b5dc0fe62a6e1ff06e478a25da9abe6af03f56e2e734394be0057289380c40f
+("400","123456")
+0xed5e163e1583f57efe94b87486f8d74e26d071540714a742ae609eee9d954a5a
 
 // hash contract: providers
-("98","456")
-0x604ead9fe001972dbd031153a1532fcaa5724a33bebdca1fd82baf7d8f9b5b1c
-("97","123")
-0xbb9372274dcd74f6b8fcd7ab8351ad96e3e60a2a18c28043ae98ec6eedee4a5c
-("99","789")
-0xcdc95244ae7e9b72b452f85648a6e07a9abc76cc4f8bc664ada4927f904894f8
+("91","1111")
+0x8cb658862a07de743ed47ee120cb6d2b7dbf90b521061693c76f455b3ebbc94f
+("97","7777")
+0x99aafb3761bc90c5a96a658ae5f32e1b438581051d8fe2d050011a3f827d092d
+("99","9999")
+0x9851fe020de88ea1e88ee084bf00f99b2d8092c2a74655e230cc1bce27df3a2a
+("96","6666")
+0x351d4e482dfc54c9e50ccccec8a0384100635b57a4e0aabf8f1cae32b14acbc2
+("95","5555")
+0x74d55189d5b61b40e11cc4998271fb2e77aee824f46b707feeee49a9db4d49c3
+("98","8888")
+0x9c222212b5cb6cae92e89025c7f599a4b76ee47386970d43f8565cd65a5190cf
+("93","3333")
+0x9ef76bb48ab06d2ebd1922ef1a765bdb4929bbd0842ec12517749d6f1d0c798b
+("92","2222")
+0xe7fb83706458ad2dc6da0015a8cafc8fca78e2754e658c8b308415e3bb063c81
+("94","4444")
+0xba0377c34d4522bd29edccdbd8324c3d5fd06c2ab4d472dd9a67939093e53e5b
+("90","0000")
+0x72c829b6ff1176aa52fa1b14a601e30df23c347f3efcd72b6af910346dd8917d
+
+
 ////////////////////////////////////////////////////////////////////////////////// 

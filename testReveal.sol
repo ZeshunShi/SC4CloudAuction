@@ -17,9 +17,9 @@ contract AuctionManagement {
         // checkState(AuctionState.fresh)
         returns(bool setupAuctionSuccess)
     {
-        require (_sealedReservePrice != 0 && bytes(_auctionDetails).length > 0);
+        require (_sealedReservePrice.length != 0 && bytes(_auctionDetails).length > 0);
         require (customerAddresses.length == 0);
-        require (msg.value >= 10);
+        require (msg.value >= 10e18);
         auctionItemStructs[msg.sender].cutomerName = _customerName;
         auctionItemStructs[msg.sender].sealedReservePrice = _sealedReservePrice;
         auctionItemStructs[msg.sender].auctionDetails = _auctionDetails;
@@ -44,9 +44,9 @@ contract AuctionManagement {
         // checkState(AuctionState.fresh) 
         returns(bool submitSuccess)
     {
-        require (_sealedBid != 0 && bytes(_providerName).length > 0);   
+        require (_sealedBid.length != 0 && bytes(_providerName).length > 0);   
         require (bidderAddresses.length <= 20);
-        require (msg.value >= 10);
+        require (msg.value >= 10e18);
         bidStructs[msg.sender].sealedBid = _sealedBid;
         bidStructs[msg.sender].providerName = _providerName;
         bidStructs[msg.sender].bidderDeposit = msg.value;
@@ -64,7 +64,7 @@ contract AuctionManagement {
         // checkBidderNumber(bidderAddresses.length > 5 && customerAddresses.length == 1)
         returns(uint)
     {
-        require (_reservePrice != 0 && _customerPassword != 0);
+        require (_reservePrice > 0 && _customerPassword != 0);
         require (keccak256(abi.encodePacked(auctionItemStructs[msg.sender].cutomerName)) == keccak256(abi.encodePacked(_customerName)));
         if (keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == auctionItemStructs[msg.sender].sealedReservePrice){
             reservePrice = _reservePrice;
@@ -85,7 +85,7 @@ contract AuctionManagement {
         // checkProvider(msg.sender)
         // checkBidderNumber(bidderAddresses.length > 5 && customerAddresses.length == 1)
     {
-        require (_bid != 0 && _providerPassword != 0);
+        require (_bid > 0 && _providerPassword != 0);
         require (keccak256(abi.encodePacked(bidStructs[msg.sender].providerName)) == keccak256(abi.encodePacked(_providerName)));
         if (keccak256(abi.encodePacked(_bid, _providerPassword)) == bidStructs[msg.sender].sealedBid){
             // revealedBids[msg.sender] = _bid;
@@ -106,7 +106,7 @@ contract AuctionManagement {
     uint [] public loserBids;
     mapping(address => uint) refund;
         
-    function sortBidsByAscending () 
+    function placeBids () 
         public
         // checkTimeAfter(bidEnd)
         // checkTimeBefore(revealEnd)
@@ -129,16 +129,6 @@ contract AuctionManagement {
                 if(exchanged==false) break;
         }
         // return revealedBidders;
-        
-        // for (uint i=0; i < 2; i++) {
-        //     winnerBids.push() = revealedBids[i];
-        //     winnerBidders.push() = revealedBidders[i];
-        // }
-        // // return winnerBidders;
-        // for (uint i=2; i < revealedBidders.length; i++) {
-        //     loserBids.push() = revealedBids[i];
-        //     loserBidders.push() = revealedBidders[i];
-        // }     
 
         uint sumBids;
         for(uint i=0; i < 5; i++){
@@ -160,14 +150,18 @@ contract AuctionManagement {
         }
         return loserBidders;
         return winnerBidders;
-
-
-        // for (uint i=0; i < loserBidders.length - 1; i++) {
-        //     refund[loserBidders[i]] = bidStructs[loserBidders[i]].bidderDeposit;
-        //     loserBidders[i].transfer(refund[loserBidders[i]]);  // check bug
-        // }
-
     }
+    
+    function testRefund()
+        public  
+    {
+        for (uint i=0; i < loserBidders.length - 1; i++) {
+        refund[loserBidders[i]] = bidStructs[loserBidders[i]].bidderDeposit;
+        loserBidders[i].transfer(refund[loserBidders[i]]);  // 1)check bug 2) set to 0
+        }
+    }
+
+    
     function test2() public view returns(address payable [] memory, uint[] memory){
         return (winnerBidders,winnerBids);
     }
