@@ -7,7 +7,7 @@ contract AuctionManagement {
         uint customerDeposit; 
     }
     mapping(address => AuctionItem) public auctionItemStructs;
-    address [] public customerAddresses;
+    address payable [] public customerAddresses;
 
     function setupAuction (string memory _customerName, string memory _auctionDetails, bytes32 _sealedReservePrice) 
         public
@@ -134,16 +134,16 @@ contract AuctionManagement {
         for(uint i=0; i < 5; i++){
             sumBids += revealedBids[i];
         }
-        require(sumBids < reservePrice, "The lowest k bids do not meet the requirements of the customer, auction failed.");  // pay back to everybody, restart the auction
         
+        // require(sumBids <= reservePrice, "The lowest k bids do not meet the requirements of the customer's reserve Price, auction failed.");  // pay back to everybody, restart the auction
         for (uint i=0; i < revealedBidders.length; i++) {
             if( i< 5 && sumBids <= reservePrice) {
                 winnerBids.push() = revealedBids[i];
                 winnerBidders.push() = revealedBidders[i];
-            } else if( i >= 5 && sumBids <= reservePrice){
+            } else if( i >= 5 && sumBids <= reservePrice ){
                 loserBids.push() = revealedBids[i];
                 loserBidders.push() = revealedBidders[i];
-            } else if( sumBids > reservePrice){
+            } else if( sumBids > reservePrice ){
                 loserBids.push() = revealedBids[i];
                 loserBidders.push() = revealedBidders[i];
             }
@@ -151,17 +151,7 @@ contract AuctionManagement {
         return loserBidders;
         return winnerBidders;
     }
-    
-    function testRefund()
-        public  
-    {
-        for (uint i=0; i < loserBidders.length - 1; i++) {
-        refund[loserBidders[i]] = bidStructs[loserBidders[i]].bidderDeposit;
-        loserBidders[i].transfer(refund[loserBidders[i]]);  // 1)check bug 2) set to 0
-        }
-    }
 
-    
     function test2() public view returns(address payable [] memory, uint[] memory){
         return (winnerBidders,winnerBids);
     }
@@ -169,6 +159,25 @@ contract AuctionManagement {
         return (loserBidders,loserBids);
     }
     
+    
+    function refundDeposit()
+        public  
+    {
+        for (uint i=0; i < loserBidders.length; i++) {
+            if (bidStructs[loserBidders[i]].bidderDeposit > 0){
+                refund[loserBidders[i]] = bidStructs[loserBidders[i]].bidderDeposit;
+                loserBidders[i].transfer(refund[loserBidders[i]]);
+                bidStructs[loserBidders[i]].bidderDeposit = 0;
+            }
+        }
+        if (winnerBidders.length == 0) {
+            refund[customerAddresses[0]] = auctionItemStructs[customerAddresses[0]].customerDeposit;
+            customerAddresses[0].transfer(refund[customerAddresses[0]]);
+            auctionItemStructs[customerAddresses[0]].customerDeposit = 0;
+        }
+        
+    }
+
     
     
 }
