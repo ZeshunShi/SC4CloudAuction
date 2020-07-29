@@ -16,20 +16,20 @@ contract AuctionManagement {
     bool public auctionStarted;
     enum AuctionState { fresh, started, publishEnd, registeEnd, bidEnd, revealEnd, monitored, finished } // update with normal auction procedures 
 
-    constructor(uint _registeTime, uint _biddingTime, uint _revealTime, uint _refundTime) 
+    constructor(uint _registeTime, uint _biddingTime, uint _revealTime, uint _withdrawTime) 
         public 
     {
         require (_registeTime > 0);
         require (_biddingTime > 0);
         require (_revealTime > 0);
-        require (_refundTime > 0);
+        require (_withdrawTime > 0);
         
         auctioneer = msg.sender;
         initialTime = now;
         registeEnd = initialTime + _registeTime;
         biddingEnd = registeEnd + _biddingTime;
         revealEnd = biddingEnd + _revealTime;
-        refundEnd = revealEnd + _refundTime;
+        refundEnd = revealEnd + _withdrawTime;
 
         auctionStarted = false;
         // AuctionState = fresh;
@@ -267,7 +267,7 @@ contract AuctionManagement {
         bool valid;    ///true: this contract has been valided
     }    
     mapping(address => ContractInfo) SLAContractPool;
-    address payable [] public SLAContractAddresses;
+    address [] public SLAContractAddresses;
 
 
     function genSLAContract() 
@@ -275,11 +275,12 @@ contract AuctionManagement {
         // checkWinnerProvider(msg.sender)
         returns(address)
     {
-        require (bidStructs[msg.sender].bidderDeposit > 0);      
+        require (bidStructs[msg.sender].bidderDeposit > 0 && customerAddresses.length > 0);   
         address newSLAContract = address (new CloudSLA(this, msg.sender, customerAddresses[0]));
-        SLAContractPool[msg.sender].id = SLAContractAddresses.length;
         SLAContractPool[newSLAContract].valid = true; 
-        SLAContractAddresses.push(msg.sender);
+        SLAContractPool[newSLAContract].id = SLAContractAddresses.length;
+        SLAContractAddresses.push(newSLAContract);
+
         emit SLAContractGen(msg.sender, now, newSLAContract);
         return newSLAContract;
     }
@@ -307,9 +308,12 @@ contract AuctionManagement {
 
 
 /**
- * The CloudSLA contract does this and that...
+ * The CloudSLA contract manage the service details between provider and customer.
  */
 contract CloudSLA {
+
+    enum State { Fresh, Init, Active, Violated, Completed }
+
     address public customer;
     address public provider;
     AuctionManagement public MainContract;
@@ -320,4 +324,93 @@ contract CloudSLA {
         customer = _customer;
         MainContract = _auctionManagement;
     }
+
+    ////the unit is Szabo = 0.001 finney
+    uint public ServiceFee = 1 ether;
+    function setServiceFee(uint _serviceFee)
+        public 
+        checkState(State.Fresh) 
+        checkProvider
+    {
+        require(_serviceFee > 0);
+        uint oneUnit = 1 szabo;
+        ServiceFee = _serviceFee*oneUnit;
+    }
+
+    function setWitnessFee(uint _witnessFee)
+        public 
+        checkState(State.Fresh) 
+        checkProvider
+    {
+        require(_witnessFee > 0);
+        uint oneUnit = 1 szabo;
+        WF4NoViolation = _witnessFee*oneUnit;
+        VoteFee = WF4NoViolation;
+    }
+
+    function setServiceDuration(uint _serviceDuration)
+        public 
+        checkState(State.Fresh) 
+        checkProvider
+    {
+        require(_serviceDuration > 0);
+        uint oneUnit = 1 minutes;
+        ServiceDuration = _serviceDuration*oneUnit;
+    }
+
+    function setWitnessCommNum(uint _witnessCommNum)
+        public 
+        checkState(State.Fresh) 
+        checkProvider
+    {
+        require(_witnessCommNum > 2);
+        require(_witnessCommNum > witnessCommittee.length);
+        WitnessNumber = _witnessCommNum;
+    }
+
+    function setConfirmNum(uint _confirmNum)
+        public 
+        checkState(State.Fresh) 
+        checkProvider
+    {
+        //// N/2 < M < N 
+        require(_confirmNum > (WitnessNumber/2));
+        require(_confirmNum < WitnessNumber);
+        
+        ConfirmNumRequired = _confirmNum;
+    }
+
+    function setCustomer(address _customer)
+        public 
+        checkState(State.Fresh) 
+        checkProvider
+    {
+        Customer = _customer;
+    }
+
+    function publishService(string _serviceDetail) 
+        public 
+        checkState(State.Fresh) 
+        checkProvider
+    {
+        cloudServiceDetail = _serviceDetail;
+    }
+    
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
