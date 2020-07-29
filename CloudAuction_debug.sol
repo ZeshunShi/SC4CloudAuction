@@ -1,5 +1,8 @@
 pragma solidity > 0.5.0;
 
+/**
+ * The AuctionManagement contract manage the lifecycle of cloud auction.
+ */
 contract AuctionManagement {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -259,8 +262,62 @@ contract AuctionManagement {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase6: generate SLA and witness contract.
+    struct ContractInfo {
+        uint id; // the id of the contract in the address pool
+        bool valid;    ///true: this contract has been valided
+    }    
+    mapping(address => ContractInfo) SLAContractPool;
+    address payable [] public SLAContractAddresses;
+
+
+    function genSLAContract() 
+        public 
+        // checkWinnerProvider(msg.sender)
+        returns(address)
+    {
+        require (bidStructs[msg.sender].bidderDeposit > 0);      
+        address newSLAContract = address (new CloudSLA(this, msg.sender, customerAddresses[0]));
+        SLAContractPool[msg.sender].id = SLAContractAddresses.length;
+        SLAContractPool[newSLAContract].valid = true; 
+        SLAContractAddresses.push(msg.sender);
+        emit SLAContractGen(msg.sender, now, newSLAContract);
+        return newSLAContract;
+    }
+
+    // mapping(address => ContractInfo) witnessContractPool;
+    // address payable [] public witnessContractAddresses;
+    // function genWitnessContract() 
+    //     public 
+    //     // checkWinnerProvider(msg.sender)
+    //     returns(address)
+    // {
+    //     require (SLAContractPool[msg.sender].valid = true);        
+    //     address newWitnessContract = new CloudSLA(this, msg.sender, 0x0);
+    //     witnessContractPool[msg.sender].id = witnessContractAddresses.length;
+    //     witnessContractPool[newWitnessContract].valid = true; 
+    //     witnessContractAddresses.push(msg.sender);
+    //     emit SLAContractGen(msg.sender, now, newWitnessContract);
+    //     return newWitnessContract;
+    // }
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+}
+
+
+/**
+ * The CloudSLA contract does this and that...
+ */
+contract CloudSLA {
+    address public customer;
+    address public provider;
+    AuctionManagement public MainContract;
+    constructor(AuctionManagement _auctionManagement, address _provider, address _customer)
+        public
+    {
+        provider = _provider;
+        customer = _customer;
+        MainContract = _auctionManagement;
+    }
 }
