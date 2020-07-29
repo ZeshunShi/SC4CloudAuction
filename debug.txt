@@ -4,6 +4,8 @@
 
 // Customer: setupAuction && set msg.value >= 10
 ("zeshun", "This service is about ...","0x9b5dc0fe62a6e1ff06e478a25da9abe6af03f56e2e734394be0057289380c40f")
+("zeshun", "This service is about ...","0xed5e163e1583f57efe94b87486f8d74e26d071540714a742ae609eee9d954a5a")
+
 
 // Provider: submitBids && set msg.value >= 10
 ("Amazon","0x8cb658862a07de743ed47ee120cb6d2b7dbf90b521061693c76f455b3ebbc94f")
@@ -15,11 +17,13 @@
 ("IBM","0x9ef76bb48ab06d2ebd1922ef1a765bdb4929bbd0842ec12517749d6f1d0c798b")
 ("Oracle","0xe7fb83706458ad2dc6da0015a8cafc8fca78e2754e658c8b308415e3bb063c81")
 ("DigitalOcean","0xba0377c34d4522bd29edccdbd8324c3d5fd06c2ab4d472dd9a67939093e53e5b")
-("VMware","0x72c829b6ff1176aa52fa1b14a601e30df23c347f3efcd72b6af910346dd8917d")
+("VMware","0xfa3147df2cd0b221c176f9afe18ed35730ab14032a34a94d794d99b9534e7ca9")
 
 
 // Customer(Auctioneer): revealReservePrice 
 ("zeshun","500","123456")
+("zeshun","400","123456")
+
 
 // Provider(Auctioneer): revealBids
 ("Amazon","91","1111")
@@ -31,7 +35,7 @@
 ("IBM","93","3333")
 ("Oracle","92","2222")
 ("DigitalOcean","94","4444")
-("VMware","90","0000")
+("VMware","90","1010")
 
 
 // Any User: test1
@@ -74,8 +78,7 @@ uint256[]: 97,98,99
 0xe7fb83706458ad2dc6da0015a8cafc8fca78e2754e658c8b308415e3bb063c81
 ("94","4444")
 0xba0377c34d4522bd29edccdbd8324c3d5fd06c2ab4d472dd9a67939093e53e5b
-("90","0000")
-0x72c829b6ff1176aa52fa1b14a601e30df23c347f3efcd72b6af910346dd8917d
-
+("90","1010")
+0xfa3147df2cd0b221c176f9afe18ed35730ab14032a34a94d794d99b9534e7ca9
 
 ////////////////////////////////////////////////////////////////////////////////// 

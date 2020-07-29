@@ -37,17 +37,19 @@ contract AuctionManagement {
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   
+  
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase2: publish auction item.
     struct AuctionItem {
-       bytes32  sealedReservePrice;
-        string  auctionDetails;
-        uint  customerDeposit; 
+        string cutomerName;
+        bytes32 sealedReservePrice;
+        string auctionDetails;
+        uint customerDeposit; 
     }
-    mapping(address => AuctionItem) public AuctionItemStructs;
-    address [] public customerAddresses;
+    mapping(address => AuctionItem) public auctionItemStructs;
+    address payable [] public customerAddresses;
 
-    function setupAuction (string memory _auctionDetails, bytes32 _sealedReservePrice) 
+    function setupAuction (string memory _customerName, string memory _auctionDetails, bytes32 _sealedReservePrice) 
         public
         payable
         // checkCustomer(msg.sender)
@@ -55,11 +57,13 @@ contract AuctionManagement {
         // checkState(AuctionState.fresh)
         returns(bool setupAuctionSuccess)
     {
-        require (_sealedReservePrice != 0);
+        require (_sealedReservePrice.length != 0 && bytes(_auctionDetails).length > 0);
         require (customerAddresses.length == 0);
-        AuctionItemStructs[msg.sender].sealedReservePrice = _sealedReservePrice;
-        AuctionItemStructs[msg.sender].auctionDetails = _auctionDetails;
-        AuctionItemStructs[msg.sender].customerDeposit = msg.value;
+        require (msg.value >= 10e18);
+        auctionItemStructs[msg.sender].cutomerName = _customerName;
+        auctionItemStructs[msg.sender].sealedReservePrice = _sealedReservePrice;
+        auctionItemStructs[msg.sender].auctionDetails = _auctionDetails;
+        auctionItemStructs[msg.sender].customerDeposit = msg.value;
         customerAddresses.push(msg.sender);
         return true;        
     }
@@ -71,7 +75,6 @@ contract AuctionManagement {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase3: normal user register as bidders (providers).
-
     enum ProviderState { Ready, Candidate, Absent }
     struct Bidder {
         uint id; // the id of the provider in the address pool
@@ -95,17 +98,16 @@ contract AuctionManagement {
         providerAddrs.push(msg.sender);
     }
     function viewProviderAddrsLength() public view returns(uint){
-        return bidderAddresses.length;
+        return providerAddrs.length;
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase4: registered provoders submit sealed bids as well as deposit money.
-
     struct Bid {
+        string providerName;
         bytes32 sealedBid;
-        string  providerName;
         uint bidderDeposit;
     }
     mapping(address => Bid) public bidStructs;
@@ -119,77 +121,146 @@ contract AuctionManagement {
         // checkState(AuctionState.fresh) 
         returns(bool submitSuccess)
     {
-        require (_sealedBid != 0);
+        require (_sealedBid.length != 0 && bytes(_providerName).length > 0);   
         require (bidderAddresses.length <= 20);
+        require (msg.value >= 10e18);
         bidStructs[msg.sender].sealedBid = _sealedBid;
         bidStructs[msg.sender].providerName = _providerName;
         bidStructs[msg.sender].bidderDeposit = msg.value;
         bidderAddresses.push(msg.sender);
         return true;
-
-        // can also put into modifier in the next phase
-        // if (bidderAddresses.length > 5)
-        // {
-        //     // do something
-        // } 
     }
-    
     function viewBiddersLength() public view returns(uint){
         return bidderAddresses.length;
     }
-    //  function getBalance() public view returns(uint){
-    //     return address(auctioneer).balance;
-    // }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase5: reveal, sorting, and pay back the deposit money.
-
-    // function revealReservePrice (bytes32 _reservePrice, uint _customerPassword)
-    //     public
-    //     payable
-    //     // checkTimeAfter(bidEnd)
-    //     // checkTimeBefore(revealEnd)
-    //     // checkCustomer(msg.sender)
-    // {
-    //     if(keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == sealedReservePrice){
-    //         reservePrice = _reservePrice;
-    //     }        
-    // }
-        // TBD: check how to iterate the mapping
-    // function revealProvider (bytes32 _bid, uint _providerPassword)
-    //     public
-    //     payable
-    //     checkTimeAfter(bidEnd)
-    //     checkTimeBefore(revealEnd)
-    //     checkProvider(msg.sender)
-    // {
-
-    //     for (uint i=0; i < bidderAddresses.length; i++) {
-    //         totalBids += bidStructs[bidderAddresses[i]];
-    //     return totalBids;
-    //     }
-
-    //     if(keccak256(abi.encodePacked(_bid, _providerPassword)) == sealedBids[msg.sender]){
-    //         revealedBids[msg.sender] = _bid;
-    //     }        
-    // }
-    //     /**
-    //  * Sorting Interface::
-    //  * This is for sorting the bidding prices by ascending of different providers
-    //  * */
-
-    // using SortingMethods for uint[];
-    // uint[] bidArray;
-
-    // // this function add the bids from different providers
-    // function addBids (uint[] memory _ArrayToAdd) public {
-    //     for (uint i=0; i< _ArrayToAdd.length; i++){
-    //         bidArray.push(_ArrayToAdd[i]);
-    //     }
-    // }
-
-    // function sortByPriceAscending() public returns(uint[] memory){
-    //     bidArray = bidArray.heapSort();
-    //     return bidArray;
-    // }
+    uint public reservePrice;
+    function revealReservePrice (string memory _customerName, uint _reservePrice, uint _customerPassword)
+        public
+        payable
+        // checkTimeAfter(bidEnd)
+        // checkTimeBefore(revealEnd)
+        // checkCustomer(msg.sender)
+        // checkBidderNumber(bidderAddresses.length > 5 && customerAddresses.length == 1)
+        returns(uint)
+    {
+        require (_reservePrice > 0 && _customerPassword != 0);
+        require (keccak256(abi.encodePacked(auctionItemStructs[msg.sender].cutomerName)) == keccak256(abi.encodePacked(_customerName)));
+        if (keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == auctionItemStructs[msg.sender].sealedReservePrice){
+            reservePrice = _reservePrice;
+        }
+        return reservePrice;
+    }
     
+    address payable [] public revealedBidders;
+    uint [] public revealedBids;
+    // mapping(address => uint) public revealedBids;
+    
+    function revealBids (string memory _providerName, uint _bid, uint _providerPassword)
+        public
+        payable
+        // checkTimeAfter(bidEnd)
+        // checkTimeBefore(revealEnd)
+        // checkProvider(msg.sender)
+        // checkBidderNumber(bidderAddresses.length > 5 && customerAddresses.length == 1)
+    {
+        require (_bid > 0 && _providerPassword != 0);
+        require (keccak256(abi.encodePacked(bidStructs[msg.sender].providerName)) == keccak256(abi.encodePacked(_providerName)));
+        if (keccak256(abi.encodePacked(_bid, _providerPassword)) == bidStructs[msg.sender].sealedBid){
+            // revealedBids[msg.sender] = _bid;
+            revealedBidders.push(msg.sender);
+            revealedBids.push(_bid);
+        }
+    }
+    function testReveal() public view returns(address payable [] memory, uint[] memory){
+        return (revealedBidders,revealedBids);
+    }
+    
+    address payable [] public winnerBidders;
+    address payable [] public loserBidders;
+    uint [] public winnerBids;
+    uint [] public loserBids;
+    mapping(address => uint) refund;
+        
+    function placeBids () 
+        public
+        // checkTimeAfter(bidEnd)
+        // checkTimeBefore(revealEnd)
+        // checkAuctioner(msg.sender = owner)
+        // checkBidderNumber(revealedBidders.length > k)
+        returns(address payable [] memory)
+    {
+        bool exchanged;
+        uint i;
+        uint j;  
+        for (uint i=0; i < revealedBids.length - 1; i++) {
+            exchanged = false;
+            for (j =0; j < revealedBids.length-i-1; j++){
+                if (revealedBids[j] > revealedBids[j+1]){
+                    (revealedBids[j], revealedBids[j+1]) = (revealedBids[j+1], revealedBids[j]);
+                    (revealedBidders[j], revealedBidders[j+1]) = (revealedBidders[j+1], revealedBidders[j]);
+                    exchanged = true;
+                }
+            }
+                if(exchanged==false) break;
+        }
+        // return revealedBidders;
+
+        uint sumBids;
+        for(uint i=0; i < 5; i++){
+            sumBids += revealedBids[i];
+        }
+        
+        // require(sumBids <= reservePrice, "The lowest k bids do not meet the requirements of the customer's reserve Price, auction failed.");  // pay back to everybody, restart the auction
+        for (uint i=0; i < revealedBidders.length; i++) {
+            if( i< 5 && sumBids <= reservePrice) {
+                winnerBids.push() = revealedBids[i];
+                winnerBidders.push() = revealedBidders[i];
+            } else if( i >= 5 && sumBids <= reservePrice ){
+                loserBids.push() = revealedBids[i];
+                loserBidders.push() = revealedBidders[i];
+            } else if( sumBids > reservePrice ){
+                loserBids.push() = revealedBids[i];
+                loserBidders.push() = revealedBidders[i];
+            }
+        }
+        return loserBidders;
+        return winnerBidders;
+    }
+
+    function testWinner() public view returns(address payable [] memory, uint[] memory){
+        return (winnerBidders,winnerBids);
+    }
+    function testLoser() public view returns(address payable [] memory, uint[] memory){
+        return (loserBidders,loserBids);
+    }
+    
+    function refundDeposit()
+        public  
+    {
+        for (uint i=0; i < loserBidders.length; i++) {
+            if (bidStructs[loserBidders[i]].bidderDeposit > 0){
+                refund[loserBidders[i]] = bidStructs[loserBidders[i]].bidderDeposit;
+                loserBidders[i].transfer(refund[loserBidders[i]]);
+                bidStructs[loserBidders[i]].bidderDeposit = 0;
+            }
+        }
+        if (winnerBidders.length == 0) {
+            refund[customerAddresses[0]] = auctionItemStructs[customerAddresses[0]].customerDeposit;
+            customerAddresses[0].transfer(refund[customerAddresses[0]]);
+            auctionItemStructs[customerAddresses[0]].customerDeposit = 0;
+        }
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase6: generate SLA and witness contract.
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 }
