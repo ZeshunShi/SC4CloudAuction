@@ -14,6 +14,7 @@ contract AuctionManagement {
     uint public revealEnd;
     uint public refundEnd;
     bool public auctionStarted;
+    
     enum AuctionState { fresh, started, publishEnd, registeEnd, bidEnd, revealEnd, monitored, finished } // update with normal auction procedures 
 
     constructor(uint _registeTime, uint _biddingTime, uint _revealTime, uint _withdrawTime) 
@@ -325,76 +326,76 @@ contract CloudSLA {
         MainContract = _auctionManagement;
     }
 
-    ////the unit is Szabo = 0.001 finney
-    uint public ServiceFee = 1 ether;
-    function setServiceFee(uint _serviceFee)
-        public 
-        checkState(State.Fresh) 
-        checkProvider
-    {
-        require(_serviceFee > 0);
-        uint oneUnit = 1 szabo;
-        ServiceFee = _serviceFee*oneUnit;
-    }
+    // ////the unit is Szabo = 0.001 finney
+    // uint public ServiceFee = 1 ether;
+    // function setServiceFee(uint _serviceFee)
+    //     public 
+    //     checkState(State.Fresh) 
+    //     checkProvider
+    // {
+    //     require(_serviceFee > 0);
+    //     uint oneUnit = 1 szabo;
+    //     ServiceFee = _serviceFee*oneUnit;
+    // }
 
-    function setWitnessFee(uint _witnessFee)
-        public 
-        checkState(State.Fresh) 
-        checkProvider
-    {
-        require(_witnessFee > 0);
-        uint oneUnit = 1 szabo;
-        WF4NoViolation = _witnessFee*oneUnit;
-        VoteFee = WF4NoViolation;
-    }
+    // function setWitnessFee(uint _witnessFee)
+    //     public 
+    //     checkState(State.Fresh) 
+    //     checkProvider
+    // {
+    //     require(_witnessFee > 0);
+    //     uint oneUnit = 1 szabo;
+    //     WF4NoViolation = _witnessFee*oneUnit;
+    //     VoteFee = WF4NoViolation;
+    // }
 
-    function setServiceDuration(uint _serviceDuration)
-        public 
-        checkState(State.Fresh) 
-        checkProvider
-    {
-        require(_serviceDuration > 0);
-        uint oneUnit = 1 minutes;
-        ServiceDuration = _serviceDuration*oneUnit;
-    }
+    // function setServiceDuration(uint _serviceDuration)
+    //     public 
+    //     checkState(State.Fresh) 
+    //     checkProvider
+    // {
+    //     require(_serviceDuration > 0);
+    //     uint oneUnit = 1 minutes;
+    //     ServiceDuration = _serviceDuration*oneUnit;
+    // }
 
-    function setWitnessCommNum(uint _witnessCommNum)
-        public 
-        checkState(State.Fresh) 
-        checkProvider
-    {
-        require(_witnessCommNum > 2);
-        require(_witnessCommNum > witnessCommittee.length);
-        WitnessNumber = _witnessCommNum;
-    }
+    // function setWitnessCommNum(uint _witnessCommNum)
+    //     public 
+    //     checkState(State.Fresh) 
+    //     checkProvider
+    // {
+    //     require(_witnessCommNum > 2);
+    //     require(_witnessCommNum > witnessCommittee.length);
+    //     WitnessNumber = _witnessCommNum;
+    // }
 
-    function setConfirmNum(uint _confirmNum)
-        public 
-        checkState(State.Fresh) 
-        checkProvider
-    {
-        //// N/2 < M < N 
-        require(_confirmNum > (WitnessNumber/2));
-        require(_confirmNum < WitnessNumber);
+    // function setConfirmNum(uint _confirmNum)
+    //     public 
+    //     checkState(State.Fresh) 
+    //     checkProvider
+    // {
+    //     //// N/2 < M < N 
+    //     require(_confirmNum > (WitnessNumber/2));
+    //     require(_confirmNum < WitnessNumber);
         
-        ConfirmNumRequired = _confirmNum;
-    }
+    //     ConfirmNumRequired = _confirmNum;
+    // }
 
-    function setCustomer(address _customer)
-        public 
-        checkState(State.Fresh) 
-        checkProvider
-    {
-        Customer = _customer;
-    }
+    // function setCustomer(address _customer)
+    //     public 
+    //     checkState(State.Fresh) 
+    //     checkProvider
+    // {
+    //     Customer = _customer;
+    // }
 
-    function publishService(string _serviceDetail) 
-        public 
-        checkState(State.Fresh) 
-        checkProvider
-    {
-        cloudServiceDetail = _serviceDetail;
-    }
+    // function publishService(string _serviceDetail) 
+    //     public 
+    //     checkState(State.Fresh) 
+    //     checkProvider
+    // {
+    //     cloudServiceDetail = _serviceDetail;
+    // }
     
 }
 
