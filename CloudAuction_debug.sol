@@ -335,12 +335,31 @@ contract AuctionManagement {
         return witnessPool[msg.sender].registered;
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    struct WitnessAccount {
-        //bool selected;   ///wheterh it is a member witness committee  要不要？
-        bool violated;   ///whether it has reported that the service agreement is violated 
+    struct Message {
+        uint[] result;   ///whether it has reported that the service agreement is violated 
         uint balance;    ///the account balance of this witness
     }
-    mapping(address => WitnessAccount) witnesses;
+
+    uint[] monitorMessage;
+    mapping (address => monitorMessage) messageArray;
+    
+    function reportResult(bytes32[] _sealedResult) 
+        public
+        payable
+        // checkWitness(msg.sender)
+        // checkState(AuctionState.monitor) 
+        returns(bool reportSuccess)
+    {
+        require (_sealedBid.length == k);   
+        require (bidderAddresses.length <= 20);
+        require (msg.value >= 10e18);
+        bidStructs[msg.sender].sealedBid = _sealedBid;
+        bidStructs[msg.sender].bidderDeposit = msg.value;
+        bidderAddresses.push(msg.sender);
+        return true;
+    }
+
+
 
 // registered witnesses submit sealed results.
     struct Bid {
@@ -351,26 +370,10 @@ contract AuctionManagement {
     mapping(address => Bid) public bidStructs;
     address [] public bidderAddresses;
 
-    function submitBids(string memory _providerName, bytes32 _sealedBid) 
-        public
-        payable
-        // checkProvider(msg.sender)
-        // checkDeposit(msg.value)
-        // checkState(AuctionState.fresh) 
-        returns(bool submitSuccess)
-    {
-        require (_sealedBid.length != 0 && bytes(_providerName).length > 0);   
-        require (bidderAddresses.length <= 20);
-        require (msg.value >= 10e18);
-        bidStructs[msg.sender].sealedBid = _sealedBid;
-        bidStructs[msg.sender].providerName = _providerName;
-        bidStructs[msg.sender].bidderDeposit = msg.value;
-        bidderAddresses.push(msg.sender);
-        return true;
-    }
 
 
-    function reportMonitorResule()
+
+    function reportMonitorResult()
         public
         payable
         checkTimeIn(ServiceEnd)
