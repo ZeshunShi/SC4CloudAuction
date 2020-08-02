@@ -146,18 +146,18 @@ contract AuctionManagement {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase5: reveal, sorting, and pay back the deposit money.
     uint public reservePrice;
-    function revealReservePrice (string memory _customerName, uint _reservePrice, uint _customerPassword)
+    function revealReservePrice (string memory _customerName, uint _reservePrice, uint _customerKey)
         public
         payable
         // checkTimeAfter(bidEnd)
         // checkTimeBefore(revealEnd)
         // checkCustomer(msg.sender)
-        // checkBidderNumber(bidderAddresses.length > 5 && customerAddresses.length == 1)
+        // checkBidderNumber(bidderAddresses.length > 5 && customerAddresses.length == 1) //put into function part
         returns(uint)
     {
-        require (_reservePrice > 0 && _customerPassword != 0);
+        require (_reservePrice > 0 && _customerKey != 0);
         require (keccak256(abi.encodePacked(auctionItemStructs[msg.sender].cutomerName)) == keccak256(abi.encodePacked(_customerName)));
-        if (keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == auctionItemStructs[msg.sender].sealedReservePrice){
+        if (keccak256(abi.encodePacked(_reservePrice, _customerKey)) == auctionItemStructs[msg.sender].sealedReservePrice){
             reservePrice = _reservePrice;
         }
         return reservePrice;
@@ -167,7 +167,7 @@ contract AuctionManagement {
     uint [] public revealedBids;
     // mapping(address => uint) public revealedBids;
     
-    function revealBids (string memory _providerName, uint _bid, uint _providerPassword)
+    function revealBids (string memory _providerName, uint _bid, uint _providerKey)
         public
         payable
         // checkTimeAfter(bidEnd)
@@ -175,9 +175,9 @@ contract AuctionManagement {
         // checkProvider(msg.sender)
         // checkBidderNumber(bidderAddresses.length > 5 && customerAddresses.length == 1)
     {
-        require (_bid > 0 && _providerPassword != 0);
+        require (_bid > 0 && _providerKey != 0);
         require (keccak256(abi.encodePacked(bidStructs[msg.sender].providerName)) == keccak256(abi.encodePacked(_providerName)));
-        if (keccak256(abi.encodePacked(_bid, _providerPassword)) == bidStructs[msg.sender].sealedBid){
+        if (keccak256(abi.encodePacked(_bid, _providerKey)) == bidStructs[msg.sender].sealedBid){
             // revealedBids[msg.sender] = _bid;
             revealedBidders.push(msg.sender);
             revealedBids.push(_bid);
@@ -206,7 +206,7 @@ contract AuctionManagement {
         uint j;  
         for (uint i=0; i < revealedBids.length - 1; i++) {
             exchanged = false;
-            for (j =0; j < revealedBids.length-i-1; j++){
+            for (j =0; j < revealedBids.length- i - 1; j++){
                 if (revealedBids[j] > revealedBids[j+1]){
                     (revealedBids[j], revealedBids[j+1]) = (revealedBids[j+1], revealedBids[j]);
                     (revealedBidders[j], revealedBidders[j+1]) = (revealedBidders[j+1], revealedBidders[j]);
@@ -326,24 +326,26 @@ contract AuctionManagement {
         checkAllSLA()
         returns(bool)
     {
+        require (witnessAddrs.length <= 100);
         witnessPool[msg.sender].index = witnessAddrs.length;
         witnessPool[msg.sender].state = WitnessState.Offline;
         witnessPool[msg.sender].reputation = 0;
         witnessPool[msg.sender].registered = true;
         witnessPool[msg.sender].SLAContracts = SLAContractAddresses;
         witnessAddrs.push(msg.sender);
-        return witnessPool[msg.sender].registered;
+        return true;
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    struct Message {
-        uint[] result;   ///whether it has reported that the service agreement is violated 
-        uint balance;    ///the account balance of this witness
-    }
+// registered witnesses submit sealed results.
+    // struct Message {
+    //     uint[] result;   ///whether it has reported that the service agreement is violated 
+    //     uint balance;    ///the account balance of this witness
+    // }
 
-    uint[] monitorMessage;
-    mapping (address => monitorMessage) messageArray;
+    uint[] witnessMessage;
+    mapping (address => witnessMessage) sealedMessageArray;
     
-    function reportResult(bytes32[] _sealedResult) 
+    function reportResults(bytes32[] _sealedResult) 
         public
         payable
         // checkWitness(msg.sender)
@@ -351,66 +353,41 @@ contract AuctionManagement {
         returns(bool reportSuccess)
     {
         require (_sealedBid.length == k);   
-        require (bidderAddresses.length <= 20);
-        require (msg.value >= 10e18);
-        bidStructs[msg.sender].sealedBid = _sealedBid;
-        bidStructs[msg.sender].bidderDeposit = msg.value;
-        bidderAddresses.push(msg.sender);
-        return true;
+        sealedMessageArray[msg.sender] = _sealedResult;
+        returns true;
+
+        // check all the monitoring results(for k SLAs) in the rang(0,100)
+        // put in the reveal and place section
+
+        // for (uint i=0; i < k; i++) {
+        //     if (_sealedResult[i] >= 0 && _sealedResult[i] <= 100){
+        //         checkNumber++;
+        //     }
+        // }
+        // if ( checkNumber == k ){
+        //     messageArray[msg.sender] = _sealedResult;
+    
+        // ConfirmRepCount++;
+        // if( ConfirmRepCount >= ConfirmNumRequired ){
+        //     SLAState = State.Violated;
+        //     emit SLAStateModified(msg.sender, now, State.Violated);
+        // }    
     }
 
-
-
-// registered witnesses submit sealed results.
-    struct Bid {
-        string providerName;
-        bytes32 sealedBid;
-        uint bidderDeposit;
-    }
-    mapping(address => Bid) public bidStructs;
-    address [] public bidderAddresses;
-
-
-
-
-    function reportMonitorResult()
+    function revealResults (uint[] _message, uint _witnessKey)
         public
         payable
-        checkTimeIn(ServiceEnd)
-        checkWitness 
-        checkMoney(VoteFee)
+        // checkTimeAfter(bidEnd)
+        // checkTimeBefore(revealEnd)
+        // checkState(AuctionState.monitor) 
+        // checkWitness(msg.sender)
+        // checkBidderNumber(bidderAddresses.length > 5 && customerAddresses.length == 1)
     {
-        uint equalOp = 0;   /////nonsense operation to make every one using the same gas 
-        
-        if(ReportTimeBegin == 0)
-            ReportTimeBegin = now;
-        else
-            equalOp = now; 
-            
-        ////only valid within the confirmation time window
-        require(now < ReportTimeBegin + ReportTimeWin);
-        
-        require( SLAState == State.Violated || SLAState == State.Active );
-        
-        /////one witness cannot vote twice 
-        require(!witnesses[msg.sender].violated);
-        
-        witnesses[msg.sender].violated = true;
-        witnesses[msg.sender].balance += VoteFee;
-        
-        ConfirmRepCount++;
-        
-        ////the witness who reports in the last order pay more gas as penalty
-        if( ConfirmRepCount >= ConfirmNumRequired ){
-            SLAState = State.Violated;
-            emit SLAStateModified(msg.sender, now, State.Violated);
+        require (_message.length == k && _witnessKey != 0);
+        if (keccak256(abi.encodePacked(_message, _witnessKey)) == sealedMessageArray[msg.sender]){
+            revealedBidders.push(msg.sender);
+            revealedBids.push(_message);
         }
-        
-        emit SLAViolationRep(msg.sender, now, ServiceEnd);
-    }
-
-    function myFunction () returns(bool res) internal {
-        
     }
     
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
