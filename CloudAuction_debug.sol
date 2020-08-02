@@ -250,6 +250,9 @@ contract AuctionManagement {
     
     function refundDeposit()
         public  
+        // checkTimeAfter(bidEnd)
+        // checkTimeBefore(revealEnd)
+        // checkAuctioner(msg.sender = owner)
     {
         for (uint i=0; i < loserBidders.length; i++) {
             if (bidStructs[loserBidders[i]].bidderDeposit > 0){
@@ -346,22 +349,22 @@ contract AuctionManagement {
     // uint[] witnessMessage;
 
     mapping (address => bytes32[]) sealedMessageArray;
-    function reportResults(bytes32[] _sealedResult) 
+    function reportResults(bytes32[] memory _sealedResult) 
         public
         payable
         // checkWitness(msg.sender)
         // checkState(AuctionState.monitor) 
         returns(bool reportSuccess)
     {
-        require (_sealedBid.length == providerNumber);   
+        require (_sealedResult.length == providerNumber);   
         sealedMessageArray[msg.sender] = _sealedResult;
-        returns true;
+        return true;
     }
 
     mapping (address => uint[]) revealedMessageArray;
     address [] public revealedWitnesses; 
 
-    function revealMessages (uint[] _message, uint _witnessKey)
+    function revealMessages (uint[] memory _message, uint _witnessKey)
         public
         payable
         // checkTimeAfter(bidEnd)
@@ -372,6 +375,7 @@ contract AuctionManagement {
         returns(bool revealSuccess)
     {
         require (_message.length == providerNumber && _witnessKey != 0);
+        uint SLAsNumber;
         for (uint i=0; i < providerNumber; i++) {
             // check all the monitoring messages (for k SLAs) in the rang 0-100.
             require (_message[i] >= 0 && _message[i] <= 100);
@@ -382,13 +386,17 @@ contract AuctionManagement {
         // check all the monitoring messages(for k SLAs) in the array reveled successfully.
         if (SLAsNumber == providerNumber) {
             revealedMessageArray[msg.sender] = _message;
-            revealedWitnesses.push(msg.sender)
+            revealedWitnesses.push(msg.sender);
             return true;
         } else if (SLAsNumber < providerNumber) {
             return false;
         }
     }
 
+    uint public uintWitnessFee;
+    uint public Epsilon;
+    mapping (address => uint[]) sigma;
+    
     function placeMessages ()
         public
         // checkTimeAfter(bidEnd)
@@ -397,28 +405,26 @@ contract AuctionManagement {
         // checkRevealedWitnessNumber(revealedWitnesses.length >= providerNumber*10)
         returns(address payable [] memory)
     {
-        // 1. compare the message from one witnesses to others to define the money transfer rule.
-        // 2. withdraw the witness fee.
-        // uint fai;
-        mapping (uint => uint) fai;
+        // 1. Fine: compare the message from one witnesses to others to define the money transfer rule.
+        // 2. pay back the witness fee.
+        
         for (uint j=0; j < providerNumber; j++) {
             for (uint i=0; i < revealedWitnesses.length; i++) {
                 for (uint k=0; k < revealedWitnesses.length; k++) {
                     require (i != k);
-                    fai[i][j] += (revealedMessageArray[revealedWitnesses[i]][j] - revealedMessageArray[revealedWitnesses[k]][j]) ** 2
+                    sigma[revealedWitnesses[i]][j] += (revealedMessageArray[revealedWitnesses[i]][j] - revealedMessageArray[revealedWitnesses[k]][j]) ** 2;
                 }
             }
         }
 
+        uint[] memory phi;
+        for (uint i=0; i < revealedWitnesses.length; i++) {
+            for (uint j=0; j < providerNumber; j++) {
+                phi[i] += (uintWitnessFee - (Epsilon/(revealedWitnesses.length - 1) * sigma[revealedWitnesses[i]][j]));
+            }
+        }
 
-
-        // ConfirmRepCount++;
-        // if( ConfirmRepCount >= ConfirmNumRequired ){
-        //     SLAState = State.Violated;
-        //     emit SLAStateModified(msg.sender, now, State.Violated);
-        // }
     }
-
 
 
 
