@@ -49,11 +49,12 @@ contract AuctionManagement {
         bytes32 sealedReservePrice;
         string auctionDetails;
         uint customerDeposit; 
+        uint8 providerNumber;
     }
     mapping(address => AuctionItem) public auctionItemStructs;
     address payable [] public customerAddresses;
 
-    function setupAuction (string memory _customerName, string memory _auctionDetails, bytes32 _sealedReservePrice) 
+    function setupAuction (string memory _customerName, string memory _auctionDetails, bytes32 _sealedReservePrice, uint8 _providerNumber) 
         public
         payable
         // checkCustomer(msg.sender)
@@ -68,6 +69,7 @@ contract AuctionManagement {
         auctionItemStructs[msg.sender].sealedReservePrice = _sealedReservePrice;
         auctionItemStructs[msg.sender].auctionDetails = _auctionDetails;
         auctionItemStructs[msg.sender].customerDeposit = msg.value;
+        auctionItemStructs[msg.sender].providerNumber = _providerNumber
         customerAddresses.push(msg.sender);
         return true;        
     }
@@ -198,7 +200,7 @@ contract AuctionManagement {
         // checkTimeAfter(bidEnd)
         // checkTimeBefore(revealEnd)
         // checkAuctioner(msg.sender = owner)
-        // checkBidderNumber(revealedBidders.length > k)
+        // checkBidderNumber(revealedBidders.length > providerNumber)
         returns(address payable [] memory)
     {
         bool exchanged;
@@ -224,10 +226,10 @@ contract AuctionManagement {
         
         // require(sumBids <= reservePrice, "The lowest k bids do not meet the requirements of the customer's reserve Price, auction failed.");  // pay back to everybody, restart the auction
         for (uint i=0; i < revealedBidders.length; i++) {
-            if( i< 5 && sumBids <= reservePrice) {
+            if( i< providerNumber && sumBids <= reservePrice) {
                 winnerBids.push() = revealedBids[i];
                 winnerBidders.push() = revealedBidders[i];
-            } else if( i >= 5 && sumBids <= reservePrice ){
+            } else if( i >= providerNumber && sumBids <= reservePrice ){
                 loserBids.push() = revealedBids[i];
                 loserBidders.push() = revealedBidders[i];
             } else if( sumBids > reservePrice ){
@@ -351,7 +353,7 @@ contract AuctionManagement {
         // checkState(AuctionState.monitor) 
         returns(bool reportSuccess)
     {
-        require (_sealedBid.length == k);   
+        require (_sealedBid.length == providerNumber);   
         sealedMessageArray[msg.sender] = _sealedResult;
         returns true;
     }
@@ -369,8 +371,8 @@ contract AuctionManagement {
         // checkBidderNumber(bidderAddresses.length > 5 && customerAddresses.length == 1)
         returns(bool revealSuccess)
     {
-        require (_message.length == k && _witnessKey != 0);
-        for (uint i=0; i < k; i++) {
+        require (_message.length == providerNumber && _witnessKey != 0);
+        for (uint i=0; i < providerNumber; i++) {
             // check all the monitoring messages (for k SLAs) in the rang 0-100.
             require (_message[i] >= 0 && _message[i] <= 100);
             if (keccak256(abi.encodePacked(_message[i], _witnessKey)) == sealedMessageArray[msg.sender][i]){
@@ -378,11 +380,11 @@ contract AuctionManagement {
             }
         }
         // check all the monitoring messages(for k SLAs) in the array reveled successfully.
-        if (SLAsNumber == k) {
+        if (SLAsNumber == providerNumber) {
             revealedMessageArray[msg.sender] = _message;
             revealedWitnesses.push(msg.sender)
             return true;
-        } else if (SLAsNumber < k) {
+        } else if (SLAsNumber < providerNumber) {
             return false;
         }
     }
@@ -392,19 +394,29 @@ contract AuctionManagement {
         // checkTimeAfter(bidEnd)
         // checkTimeBefore(revealEnd)
         // checkAuctioner(msg.sender = owner)
-        // checkRevealedWitnessNumber(revealedWitnesses.length >= k*10)
+        // checkRevealedWitnessNumber(revealedWitnesses.length >= providerNumber*10)
         returns(address payable [] memory)
     {
-        // 1. compare the message from one witnesses to others
-        // 2. withdraw the witness fee
-
-
-
-        ConfirmRepCount++;
-        if( ConfirmRepCount >= ConfirmNumRequired ){
-            SLAState = State.Violated;
-            emit SLAStateModified(msg.sender, now, State.Violated);
+        // 1. compare the message from one witnesses to others to define the money transfer rule.
+        // 2. withdraw the witness fee.
+        // uint fai;
+        mapping (uint => uint) fai;
+        for (uint j=0; j < providerNumber; j++) {
+            for (uint i=0; i < revealedWitnesses.length; i++) {
+                for (uint k=0; k < revealedWitnesses.length; k++) {
+                    require (i != k);
+                    fai[i][j] += (revealedMessageArray[revealedWitnesses[i]][j] - revealedMessageArray[revealedWitnesses[k]][j]) ** 2
+                }
+            }
         }
+
+
+
+        // ConfirmRepCount++;
+        // if( ConfirmRepCount >= ConfirmNumRequired ){
+        //     SLAState = State.Violated;
+        //     emit SLAStateModified(msg.sender, now, State.Violated);
+        // }
     }
 
 
