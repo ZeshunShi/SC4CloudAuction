@@ -81,48 +81,29 @@ contract AuctionManagement {
 // phase3: normal user register as bidders (providers).
     enum ProviderState { Ready, Candidate, Absent }
     struct Bidder {
-        uint id; // the id of the provider in the address pool
-        bool registered;    ///true: this provider has registered     
+        uint index; // the id of the provider in the address pool
         int8 reputation; //the reputation of the provider, the initial value is 0
+        bool registered;    ///true: this provider has registered     
         ProviderState state;  // the current state of the provider
     }
-    mapping (address => Bidder) public providerCrowd;
+    mapping (address => Bidder) public providerPool;
     address [] public providerAddrs;    ////the address pool of providers, which is used for register new providers in the auction
     
     function bidderRegister () 
         public
         // checkProviderNotRegistered(msg.sender)
         // checkAuctionPublished
-        returns(bool success) 
+        returns(bool registerSuccess) 
     {
-        providerCrowd[msg.sender].id = providerAddrs.length;
-        providerCrowd[msg.sender].reputation = 0;
-        providerCrowd[msg.sender].state = ProviderState.Ready;
-        providerCrowd[msg.sender].registered = true;
+        providerPool[msg.sender].index = providerAddrs.length;
+        providerPool[msg.sender].state = ProviderState.Ready;
+        providerPool[msg.sender].reputation = 0;
+        providerPool[msg.sender].registered = true;
         providerAddrs.push(msg.sender);
+        return true;        
     }
     function viewProviderAddrsLength() public view returns(uint){
         return providerAddrs.length;
-    }
-// phase7: Witness register.
-    enum WState { Offline, Online, Candidate, Busy }
-    struct Witness {
-        uint index;         ///the index of the witness in the address pool, if it is registered
-        bool registered;    ///true: this witness has registered.
-        WState state;    ///the state of the witness       
-        address SLAContract;    ////the address of SLA contract
-    }
-    mapping(address => Witness) witnessPool;
-    address [] public witnessAddrs;    ////the address pool of witnesses
-
-    function witnessRegister() 
-        public 
-        checkRegister(msg.sender)
-    {
-        witnessPool[msg.sender].index = witnessAddrs.push(msg.sender) - 1;
-        witnessPool[msg.sender].state = WState.Offline;
-        witnessPool[msg.sender].reputation = 100;
-        witnessPool[msg.sender].registered = true;
     }
 
 
@@ -286,7 +267,7 @@ contract AuctionManagement {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase6: generate SLA and witness contract.
     struct ContractInfo {
-        uint id; // the id of the contract in the address pool
+        uint index; // the id of the contract in the address pool
         bool valid;    ///true: this contract has been valided
     }    
     mapping(address => ContractInfo) SLAContractPool;
@@ -301,7 +282,7 @@ contract AuctionManagement {
         require (bidStructs[msg.sender].bidderDeposit > 0 && customerAddresses.length > 0);   
         address newSLAContract = address (new CloudSLA(this, msg.sender, customerAddresses[0]));
         SLAContractPool[newSLAContract].valid = true; 
-        SLAContractPool[newSLAContract].id = SLAContractAddresses.length;
+        SLAContractPool[newSLAContract].index = SLAContractAddresses.length;
         SLAContractAddresses.push(newSLAContract);
 
         emit SLAContractGen(msg.sender, now, newSLAContract);
@@ -317,7 +298,7 @@ contract AuctionManagement {
     // {
     //     require (SLAContractPool[msg.sender].valid = true);        
     //     address newWitnessContract = new CloudSLA(this, msg.sender, 0x0);
-    //     witnessContractPool[msg.sender].id = witnessContractAddresses.length;
+    //     witnessContractPool[msg.sender].index = witnessContractAddresses.length;
     //     witnessContractPool[newWitnessContract].valid = true; 
     //     witnessContractAddresses.push(msg.sender);
     //     emit SLAContractGen(msg.sender, now, newWitnessContract);
@@ -326,7 +307,109 @@ contract AuctionManagement {
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase7: normal user register as Witnesses and monitor the federated Cloud service.
+    enum WitnessState { Offline, Online, Candidate, Busy }
+    struct Witness {
+        uint index;         ///the index of the witness in the address pool, if it is registered
+        int8 reputation; //the reputation of the provider, the initial value is 0
+        bool registered;    ///true: this witness has registered.
+        WitnessState state;    ///the state of the witness       
+        address[] SLAContracts;    ////the address of SLA contract
+    }
+    mapping(address => Witness) witnessPool;
+    address [] public witnessAddrs;    ////the address pool of witnesses
 
+    function witnessRegister()
+        public
+        checkRegister(msg.sender)
+        checkReputation(msg.sender)
+        checkAllSLA()
+        returns(bool)
+    {
+        witnessPool[msg.sender].index = witnessAddrs.length;
+        witnessPool[msg.sender].state = WitnessState.Offline;
+        witnessPool[msg.sender].reputation = 0;
+        witnessPool[msg.sender].registered = true;
+        witnessPool[msg.sender].SLAContracts = SLAContractAddresses;
+        witnessAddrs.push(msg.sender);
+        return witnessPool[msg.sender].registered;
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    struct WitnessAccount {
+        //bool selected;   ///wheterh it is a member witness committee  要不要？
+        bool violated;   ///whether it has reported that the service agreement is violated 
+        uint balance;    ///the account balance of this witness
+    }
+    mapping(address => WitnessAccount) witnesses;
+
+// registered witnesses submit sealed results.
+    struct Bid {
+        string providerName;
+        bytes32 sealedBid;
+        uint bidderDeposit;
+    }
+    mapping(address => Bid) public bidStructs;
+    address [] public bidderAddresses;
+
+    function submitBids(string memory _providerName, bytes32 _sealedBid) 
+        public
+        payable
+        // checkProvider(msg.sender)
+        // checkDeposit(msg.value)
+        // checkState(AuctionState.fresh) 
+        returns(bool submitSuccess)
+    {
+        require (_sealedBid.length != 0 && bytes(_providerName).length > 0);   
+        require (bidderAddresses.length <= 20);
+        require (msg.value >= 10e18);
+        bidStructs[msg.sender].sealedBid = _sealedBid;
+        bidStructs[msg.sender].providerName = _providerName;
+        bidStructs[msg.sender].bidderDeposit = msg.value;
+        bidderAddresses.push(msg.sender);
+        return true;
+    }
+
+
+    function reportMonitorResule()
+        public
+        payable
+        checkTimeIn(ServiceEnd)
+        checkWitness 
+        checkMoney(VoteFee)
+    {
+        uint equalOp = 0;   /////nonsense operation to make every one using the same gas 
+        
+        if(ReportTimeBegin == 0)
+            ReportTimeBegin = now;
+        else
+            equalOp = now; 
+            
+        ////only valid within the confirmation time window
+        require(now < ReportTimeBegin + ReportTimeWin);
+        
+        require( SLAState == State.Violated || SLAState == State.Active );
+        
+        /////one witness cannot vote twice 
+        require(!witnesses[msg.sender].violated);
+        
+        witnesses[msg.sender].violated = true;
+        witnesses[msg.sender].balance += VoteFee;
+        
+        ConfirmRepCount++;
+        
+        ////the witness who reports in the last order pay more gas as penalty
+        if( ConfirmRepCount >= ConfirmNumRequired ){
+            SLAState = State.Violated;
+            emit SLAStateModified(msg.sender, now, State.Violated);
+        }
+        
+        emit SLAViolationRep(msg.sender, now, ServiceEnd);
+    }
+
+    function myFunction () returns(bool res) internal {
+        
+    }
+    
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
@@ -397,41 +480,7 @@ contract CloudSLA {
         SharedBalance += SharedFee*2;
     }
 
-    function reportViolation()
-        public
-        payable
-        checkTimeIn(ServiceEnd)
-        checkWitness 
-        checkMoney(VoteFee)
-    {
-        uint equalOp = 0;   /////nonsense operation to make every one using the same gas 
-        
-        if(ReportTimeBegin == 0)
-            ReportTimeBegin = now;
-        else
-            equalOp = now; 
-            
-        ////only valid within the confirmation time window
-        require(now < ReportTimeBegin + ReportTimeWin);
-        
-        require( SLAState == State.Violated || SLAState == State.Active );
-        
-        /////one witness cannot vote twice 
-        require(!witnesses[msg.sender].violated);
-        
-        witnesses[msg.sender].violated = true;
-        witnesses[msg.sender].balance += VoteFee;
-        
-        ConfirmRepCount++;
-        
-        ////the witness who reports in the last order pay more gas as penalty
-        if( ConfirmRepCount >= ConfirmNumRequired ){
-            SLAState = State.Violated;
-            emit SLAStateModified(msg.sender, now, State.Violated);
-        }
-        
-        emit SLAViolationRep(msg.sender, now, ServiceEnd);
-    }
+
     
 }
 
