@@ -341,10 +341,9 @@ contract AuctionManagement {
     //     uint[] result;   ///whether it has reported that the service agreement is violated 
     //     uint balance;    ///the account balance of this witness
     // }
+    // uint[] witnessMessage;
 
-    uint[] witnessMessage;
-    mapping (address => witnessMessage) sealedMessageArray;
-    
+    mapping (address => bytes32[]) sealedMessageArray;
     function reportResults(bytes32[] _sealedResult) 
         public
         payable
@@ -355,40 +354,65 @@ contract AuctionManagement {
         require (_sealedBid.length == k);   
         sealedMessageArray[msg.sender] = _sealedResult;
         returns true;
-
-        // check all the monitoring results(for k SLAs) in the rang(0,100)
-        // put in the reveal and place section
-
-        // for (uint i=0; i < k; i++) {
-        //     if (_sealedResult[i] >= 0 && _sealedResult[i] <= 100){
-        //         checkNumber++;
-        //     }
-        // }
-        // if ( checkNumber == k ){
-        //     messageArray[msg.sender] = _sealedResult;
-    
-        // ConfirmRepCount++;
-        // if( ConfirmRepCount >= ConfirmNumRequired ){
-        //     SLAState = State.Violated;
-        //     emit SLAStateModified(msg.sender, now, State.Violated);
-        // }    
     }
 
-    function revealResults (uint[] _message, uint _witnessKey)
+    mapping (address => uint[]) revealedMessageArray;
+    address [] public revealedWitnesses; 
+
+    function revealMessages (uint[] _message, uint _witnessKey)
         public
         payable
         // checkTimeAfter(bidEnd)
         // checkTimeBefore(revealEnd)
-        // checkState(AuctionState.monitor) 
+        // checkState(AuctionState.monitor)
         // checkWitness(msg.sender)
         // checkBidderNumber(bidderAddresses.length > 5 && customerAddresses.length == 1)
+        returns(bool revealSuccess)
     {
         require (_message.length == k && _witnessKey != 0);
-        if (keccak256(abi.encodePacked(_message, _witnessKey)) == sealedMessageArray[msg.sender]){
-            revealedBidders.push(msg.sender);
-            revealedBids.push(_message);
+        for (uint i=0; i < k; i++) {
+            // check all the monitoring messages (for k SLAs) in the rang 0-100.
+            require (_message[i] >= 0 && _message[i] <= 100);
+            if (keccak256(abi.encodePacked(_message[i], _witnessKey)) == sealedMessageArray[msg.sender][i]){
+                SLAsNumber++;
+            }
+        }
+        // check all the monitoring messages(for k SLAs) in the array reveled successfully.
+        if (SLAsNumber == k) {
+            revealedMessageArray[msg.sender] = _message;
+            revealedWitnesses.push(msg.sender)
+            return true;
+        } else if (SLAsNumber < k) {
+            return false;
         }
     }
+
+    function placeMessages ()
+        public
+        // checkTimeAfter(bidEnd)
+        // checkTimeBefore(revealEnd)
+        // checkAuctioner(msg.sender = owner)
+        // checkRevealedWitnessNumber(revealedWitnesses.length >= k*10)
+        returns(address payable [] memory)
+    {
+        // 1. compare the message from one witnesses to others
+        // 2. withdraw the witness fee
+
+
+
+        ConfirmRepCount++;
+        if( ConfirmRepCount >= ConfirmNumRequired ){
+            SLAState = State.Violated;
+            emit SLAStateModified(msg.sender, now, State.Violated);
+        }
+    }
+
+
+
+
+
+
+
     
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
