@@ -87,7 +87,7 @@ contract AuctionManagement {
         ProviderState state;  // the current state of the provider
     }
     mapping (address => Bidder) public providerCrowd;
-    address [] public providerAddrs;    ////the address pool of providers, which is used for registe new providers in the auction
+    address [] public providerAddrs;    ////the address pool of providers, which is used for register new providers in the auction
     
     function bidderRegister () 
         public
@@ -104,6 +104,28 @@ contract AuctionManagement {
     function viewProviderAddrsLength() public view returns(uint){
         return providerAddrs.length;
     }
+// phase7: Witness register.
+    enum WState { Offline, Online, Candidate, Busy }
+    struct Witness {
+        uint index;         ///the index of the witness in the address pool, if it is registered
+        bool registered;    ///true: this witness has registered.
+        WState state;    ///the state of the witness       
+        address SLAContract;    ////the address of SLA contract
+    }
+    mapping(address => Witness) witnessPool;
+    address [] public witnessAddrs;    ////the address pool of witnesses
+
+    function witnessRegister() 
+        public 
+        checkRegister(msg.sender)
+    {
+        witnessPool[msg.sender].index = witnessAddrs.push(msg.sender) - 1;
+        witnessPool[msg.sender].state = WState.Offline;
+        witnessPool[msg.sender].reputation = 100;
+        witnessPool[msg.sender].registered = true;
+    }
+
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -305,6 +327,7 @@ contract AuctionManagement {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
 
@@ -326,78 +349,93 @@ contract CloudSLA {
         MainContract = _auctionManagement;
     }
 
-    // ////the unit is Szabo = 0.001 finney
-    // uint public ServiceFee = 1 ether;
-    // function setServiceFee(uint _serviceFee)
-    //     public 
-    //     checkState(State.Fresh) 
-    //     checkProvider
-    // {
-    //     require(_serviceFee > 0);
-    //     uint oneUnit = 1 szabo;
-    //     ServiceFee = _serviceFee*oneUnit;
-    // }
+    uint public ServiceFee；
+    uint public WitnessFee;
+    uint public ServiceDuration;
+    uint public WitnessNumber;
+    string public ServiceDetail;
 
-    // function setWitnessFee(uint _witnessFee)
-    //     public 
-    //     checkState(State.Fresh) 
-    //     checkProvider
-    // {
-    //     require(_witnessFee > 0);
-    //     uint oneUnit = 1 szabo;
-    //     WF4NoViolation = _witnessFee*oneUnit;
-    //     VoteFee = WF4NoViolation;
-    // }
-
-    // function setServiceDuration(uint _serviceDuration)
-    //     public 
-    //     checkState(State.Fresh) 
-    //     checkProvider
-    // {
-    //     require(_serviceDuration > 0);
-    //     uint oneUnit = 1 minutes;
-    //     ServiceDuration = _serviceDuration*oneUnit;
-    // }
-
-    // function setWitnessCommNum(uint _witnessCommNum)
-    //     public 
-    //     checkState(State.Fresh) 
-    //     checkProvider
-    // {
-    //     require(_witnessCommNum > 2);
-    //     require(_witnessCommNum > witnessCommittee.length);
-    //     WitnessNumber = _witnessCommNum;
-    // }
-
-    // function setConfirmNum(uint _confirmNum)
-    //     public 
-    //     checkState(State.Fresh) 
-    //     checkProvider
-    // {
-    //     //// N/2 < M < N 
-    //     require(_confirmNum > (WitnessNumber/2));
-    //     require(_confirmNum < WitnessNumber);
+    //// this is for Cloud provider to set up this SLA and wait for Customer to accept
+    function setupSLA() 
+        public 
+        payable 
+        checkState(State.Fresh) 
+        checkProvider
+        checkMoney(PPrepayment)
+    {
+        require(WitnessNumber == witnessCommittee.length);
         
-    //     ConfirmNumRequired = _confirmNum;
-    // }
+        ProviderBalance += msg.value;
+        SLAState = State.Init;
+        AcceptTimeEnd = now + AcceptTimeWin;
+        emit SLAStateModified(msg.sender, now, State.Init);
+    }
 
-    // function setCustomer(address _customer)
-    //     public 
-    //     checkState(State.Fresh) 
-    //     checkProvider
-    // {
-    //     Customer = _customer;
-    // }
+    //// this is for customer to put its prepaid fee and accept the SLA    
+    function acceptSLA() 
+        public 
+        payable 
+        checkState(State.Init) 
+        checkCustomer
+        checkTimeIn(AcceptTimeEnd)
+        checkMoney(CPrepayment)
+    {
+        require(WitnessNumber == witnessCommittee.length);
+        
+        CustomerBalance += msg.value;
+        SLAState = State.Active;
+        emit SLAStateModified(msg.sender, now, State.Active);
+        ServiceEnd = now + ServiceDuration;
+        
+        ///transfer ServiceFee from customer to provider 
+        ProviderBalance += ServiceFee;
+        CustomerBalance -= ServiceFee;
+        
+        ///setup the SharedBalance
+        ProviderBalance -= SharedFee;
+        CustomerBalance -= SharedFee;
+        SharedBalance += SharedFee*2;
+    }
 
-    // function publishService(string _serviceDetail) 
-    //     public 
-    //     checkState(State.Fresh) 
-    //     checkProvider
-    // {
-    //     cloudServiceDetail = _serviceDetail;
-    // }
+    function reportViolation()
+        public
+        payable
+        checkTimeIn(ServiceEnd)
+        checkWitness 
+        checkMoney(VoteFee)
+    {
+        uint equalOp = 0;   /////nonsense operation to make every one using the same gas 
+        
+        if(ReportTimeBegin == 0)
+            ReportTimeBegin = now;
+        else
+            equalOp = now; 
+            
+        ////only valid within the confirmation time window
+        require(now < ReportTimeBegin + ReportTimeWin);
+        
+        require( SLAState == State.Violated || SLAState == State.Active );
+        
+        /////one witness cannot vote twice 
+        require(!witnesses[msg.sender].violated);
+        
+        witnesses[msg.sender].violated = true;
+        witnesses[msg.sender].balance += VoteFee;
+        
+        ConfirmRepCount++;
+        
+        ////the witness who reports in the last order pay more gas as penalty
+        if( ConfirmRepCount >= ConfirmNumRequired ){
+            SLAState = State.Violated;
+            emit SLAStateModified(msg.sender, now, State.Violated);
+        }
+        
+        emit SLAViolationRep(msg.sender, now, ServiceEnd);
+    }
     
 }
+
+
 
 
 
