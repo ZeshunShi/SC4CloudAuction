@@ -294,22 +294,6 @@ contract AuctionManagement {
         return newSLAContract;
     }
 
-    // mapping(address => ContractInfo) witnessContractPool;
-    // address payable [] public witnessContractAddresses;
-    // function genWitnessContract() 
-    //     public 
-    //     // checkWinnerProvider(msg.sender)
-    //     returns(address)
-    // {
-    //     require (SLAContractPool[msg.sender].valid = true);        
-    //     address newWitnessContract = new CloudSLA(this, msg.sender, 0x0);
-    //     witnessContractPool[msg.sender].index = witnessContractAddresses.length;
-    //     witnessContractPool[newWitnessContract].valid = true; 
-    //     witnessContractAddresses.push(msg.sender);
-    //     emit SLAContractGen(msg.sender, now, newWitnessContract);
-    //     return newWitnessContract;
-    // }
-
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase7: normal user register as Witnesses and monitor the federated Cloud service.
@@ -340,16 +324,11 @@ contract AuctionManagement {
         witnessAddrs.push(msg.sender);
         return true;
     }
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// registered witnesses submit sealed results.
-    // struct Message {
-    //     uint[] result;   ///whether it has reported that the service agreement is violated 
-    //     uint balance;    ///the account balance of this witness
-    // }
-    // uint[] witnessMessage;
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase8: registered witnesses submit sealed monitoring messages.
     mapping (address => bytes32[]) sealedMessageArray;
-    function reportResults(bytes32[] memory _sealedResult) 
+    function reportMessages(bytes32[] memory _sealedResult) 
         public
         payable
         // checkWitness(msg.sender)
@@ -364,6 +343,8 @@ contract AuctionManagement {
     mapping (address => uint[]) revealedMessageArray;
     address [] public revealedWitnesses; 
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase9: registered witnesses reveal sealed messages.
     function revealMessages (uint[] memory _message, uint _witnessKey)
         public
         payable
@@ -377,8 +358,8 @@ contract AuctionManagement {
         require (_message.length == providerNumber && _witnessKey != 0);
         uint SLAsNumber;
         for (uint i=0; i < providerNumber; i++) {
-            // check all the monitoring messages (for k SLAs) in the rang 0-100.
-            require (_message[i] >= 0 && _message[i] <= 100);
+            // check all the monitoring messages (for k SLAs) in the rang 0-10.
+            require (_message[i] >= 0 && _message[i] <= 10);
             if (keccak256(abi.encodePacked(_message[i], _witnessKey)) == sealedMessageArray[msg.sender][i]){
                 SLAsNumber++;
             }
@@ -393,17 +374,60 @@ contract AuctionManagement {
         }
     }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase10: pay service fee.
+    uint[] serviceFee;
+    bool[] SLAviolated;
+    address payable [] public SLAContractAddresses;
+
+    function payServiceFee ()
+        public
+        payable
+        // checkTimeAfter(bidEnd)
+        // checkTimeBefore(revealEnd)
+        // checkState(AuctionState.monitor)
+        // checkWitness(msg.sender)
+        returns(bool paymentSuccess)
+    {   
+        uint[] memory count;
+        for (uint j=0; j < SLAContractAddresses.length; j++) {
+            for (uint i=0; i < revealedWitnesses.length; i++) {
+                // the mean of 10 is 5
+                if (revealedMessageArray[revealedWitnesses[i]][j] > 5) {
+                    count[j] ++; 
+                }
+        }
+        for (uint j=0; j < SLAContractAddresses.length; j++) {
+            if (count[j] > 2/revealedWitnesses.length) {
+                SLAviolated[j] = true;
+                // transfer money(j) to customer
+                refund[customerAddresses[0]] = serviceFee[j];
+                customerAddresses[0].transfer(refund[customerAddresses[0]]);
+            } else if (count[j] <= 2/revealedWitnesses.length) {
+                SLAviolated[j] = false;
+                // transfer money to provider j
+                refund[SLAContractAddresses[j]] = serviceFee[j];
+                SLAContractAddresses[j].transfer(refund[SLAContractAddresses[j]]);
+            }
+        }
+        }   
+
+    }
+    
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase11: pay witness fee.
     uint public uintWitnessFee;
     uint public Epsilon;
     mapping (address => uint[]) sigma;
     
-    function placeMessages ()
+    function payWitnessFee ()
         public
         // checkTimeAfter(bidEnd)
         // checkTimeBefore(revealEnd)
         // checkAuctioner(msg.sender = owner)
         // checkRevealedWitnessNumber(revealedWitnesses.length >= providerNumber*10)
-        returns(address payable [] memory)
+        // check(function only call once)
+        returns(bool paymentSuccess)
     {
         // 1. Fine: compare the message from one witnesses to others to define the money transfer rule.
         // 2. pay back the witness fee.
@@ -423,13 +447,11 @@ contract AuctionManagement {
                 phi[i] += (uintWitnessFee - (Epsilon/(revealedWitnesses.length - 1) * sigma[revealedWitnesses[i]][j]));
             }
         }
-
+        for (uint i=0; i < revealedWitnesses.length; i++) {
+            refund[revealedWitnesses[i]] = phi[i];
+            revealedWitnesses[i].transfer(refund[revealedWitnesses[i]]);
+        }    
     }
-
-
-
-
-
 
     
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -454,11 +476,11 @@ contract CloudSLA {
         MainContract = _auctionManagement;
     }
 
-    uint public ServiceFee；
-    uint public WitnessFee;
-    uint public ServiceDuration;
-    uint public WitnessNumber;
-    string public ServiceDetail;
+    uint public serviceFee；
+    uint public witnessFee;
+    uint public serviceDuration;
+    uint public witnessNumber;
+    string public serviceDetail;
 
     //// this is for Cloud provider to set up this SLA and wait for Customer to accept
     function setupSLA() 
