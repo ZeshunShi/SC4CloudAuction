@@ -305,7 +305,7 @@ contract AuctionManagement {
         WitnessState state;    ///the state of the witness       
         address[] SLAContracts;    ////the address of SLA contract
     }
-    mapping(address => Witness) witnessPool;
+    mapping(address => Witness) public witnessPool;
     address [] public witnessAddrs;    ////the address pool of witnesses
 
     function witnessRegister()
@@ -316,6 +316,7 @@ contract AuctionManagement {
         returns(bool)
     {
         require (witnessAddrs.length <= 100);
+        require (witnessPool[msg.sender].reputation >= 0);
         witnessPool[msg.sender].index = witnessAddrs.length;
         witnessPool[msg.sender].state = WitnessState.Offline;
         witnessPool[msg.sender].reputation = 0;
@@ -334,14 +335,15 @@ contract AuctionManagement {
         // checkWitness(msg.sender)
         // checkState(AuctionState.monitor) 
         returns(bool reportSuccess)
-    {
+    {   
+        require (witnessPool[msg.sender].registered = true);       
         require (_sealedResult.length == providerNumber);   
         sealedMessageArray[msg.sender] = _sealedResult;
         return true;
     }
 
-    mapping (address => uint[]) revealedMessageArray;
-    address [] public revealedWitnesses; 
+    mapping (address => uint[]) public revealedMessageArray;
+    address payable [] public revealedWitnesses; 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase9: registered witnesses reveal sealed messages.
@@ -373,49 +375,9 @@ contract AuctionManagement {
             return false;
         }
     }
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// phase10: pay service fee.
-    uint[] serviceFee;
-    bool[] SLAviolated;
-    address payable [] public SLAContractAddresses;
-
-    function payServiceFee ()
-        public
-        payable
-        // checkTimeAfter(bidEnd)
-        // checkTimeBefore(revealEnd)
-        // checkState(AuctionState.monitor)
-        // checkWitness(msg.sender)
-        returns(bool paymentSuccess)
-    {   
-        uint[] memory count;
-        for (uint j=0; j < SLAContractAddresses.length; j++) {
-            for (uint i=0; i < revealedWitnesses.length; i++) {
-                // the mean of 10 is 5
-                if (revealedMessageArray[revealedWitnesses[i]][j] > 5) {
-                    count[j] ++; 
-                }
-        }
-        for (uint j=0; j < SLAContractAddresses.length; j++) {
-            if (count[j] > 2/revealedWitnesses.length) {
-                SLAviolated[j] = true;
-                // transfer money(j) to customer
-                refund[customerAddresses[0]] = serviceFee[j];
-                customerAddresses[0].transfer(refund[customerAddresses[0]]);
-            } else if (count[j] <= 2/revealedWitnesses.length) {
-                SLAviolated[j] = false;
-                // transfer money to provider j
-                refund[SLAContractAddresses[j]] = serviceFee[j];
-                SLAContractAddresses[j].transfer(refund[SLAContractAddresses[j]]);
-            }
-        }
-        }   
-
-    }
     
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// phase11: pay witness fee.
+// phase10: pay witness fee.
     uint public uintWitnessFee;
     uint public Epsilon;
     mapping (address => uint[]) sigma;
@@ -453,6 +415,45 @@ contract AuctionManagement {
         }    
     }
 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase11: pay service fee.
+    uint[] serviceFee;
+    bool[] SLAviolated;
+    address payable [] public SLAContractAddresses;
+
+    function payServiceFee ()
+        public
+        payable
+        // checkTimeAfter(bidEnd)
+        // checkTimeBefore(revealEnd)
+        // checkState(AuctionState.monitor)
+        // checkWitness(msg.sender)
+        returns(bool paymentSuccess)
+    {   
+        uint[] memory count;
+        for (uint j=0; j < SLAContractAddresses.length; j++) {
+            for (uint i=0; i < revealedWitnesses.length; i++) {
+                // the mean of 10 is 5
+                if (revealedMessageArray[revealedWitnesses[i]][j] > 5) {
+                    count[j] ++; 
+                }
+        }
+        for (uint j=0; j < SLAContractAddresses.length; j++) {
+            if (count[j] > 2/revealedWitnesses.length) {
+                SLAviolated[j] = true;
+                // transfer money(j) to customer
+                refund[customerAddresses[0]] = serviceFee[j];
+                customerAddresses[0].transfer(refund[customerAddresses[0]]);
+            } else if (count[j] <= 2/revealedWitnesses.length) {
+                SLAviolated[j] = false;
+                // transfer money to provider j
+                refund[SLAContractAddresses[j]] = serviceFee[j];
+                SLAContractAddresses[j].transfer(refund[SLAContractAddresses[j]]);
+            }
+        }
+        }   
+    }
     
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
