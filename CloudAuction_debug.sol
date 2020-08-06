@@ -273,7 +273,8 @@ contract AuctionManagement {
 // phase6: generate SLA and witness contract.
     struct ContractInfo {
         uint index; // the id of the contract in the address pool
-        bool valid;    ///true: this contract has been valided
+        bool valid;    // true: this contract has been valided
+        uint serviceFee; // the service fee should be the bidding price
     }    
     mapping(address => ContractInfo) SLAContractPool;
     address [] public SLAContractAddresses;
@@ -282,12 +283,15 @@ contract AuctionManagement {
     function genSLAContract() 
         public 
         // checkWinnerProvider(msg.sender)
+        // check(msg.value = winnerBids[winnerBidders[msg.sender]])  or create another mapping
         returns(address)
+        
     {
         require (bidStructs[msg.sender].bidderDeposit > 0 && customerAddresses.length > 0);   
         address newSLAContract = address (new CloudSLA(this, msg.sender, customerAddresses[0]));
-        SLAContractPool[newSLAContract].valid = true; 
         SLAContractPool[newSLAContract].index = SLAContractAddresses.length;
+        SLAContractPool[newSLAContract].valid = true; 
+        SLAContractPool[newSLAContract].serviceFee = msg.value;
         SLAContractAddresses.push(newSLAContract);
 
         emit SLAContractGen(msg.sender, now, newSLAContract);
@@ -329,7 +333,7 @@ contract AuctionManagement {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase8: registered witnesses submit sealed monitoring messages.
     mapping (address => bytes32[]) sealedMessageArray;
-    function reportMessages(bytes32[] memory _sealedResult) 
+    function submitMessages(bytes32[] memory _sealedResult) 
         public
         payable
         // checkWitness(msg.sender)
@@ -378,49 +382,65 @@ contract AuctionManagement {
     
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase10: pay witness fee.
-    uint public uintWitnessFee;
-    uint public Epsilon;
-    mapping (address => uint[]) sigma;
+contract TestPay2 {
+    uint public providerNumber = 3;
+    // To ensure each witness tell the truth, uintWitnessFee is weakly balanced with Epsilon.
+    uint public uintWitnessFee = 4*100;
+    uint public Epsilon = 4;
+    uint[] public phi;
+
+    mapping (address => uint[]) public revealedMessageArray;
+    address payable [] public revealedWitnesses; 
+
+    // mapping(address => uint) public refund;
+
+    function addRevealedMessageArray (uint[] memory _revealedMessageArray) 
+        public
+    {
+        revealedMessageArray[msg.sender] = _revealedMessageArray;
+        revealedWitnesses.push(msg.sender);
+    }
     
-    function payWitnessFee ()
+
+    function CalculateWitnessFee ()
         public
         // checkTimeAfter(bidEnd)
         // checkTimeBefore(revealEnd)
         // checkAuctioner(msg.sender = owner)
         // checkRevealedWitnessNumber(revealedWitnesses.length >= providerNumber*10)
-        // check(function only call once)
-        returns(bool paymentSuccess)
+        // returns(address payable [] memory)
     {
-        // 1. Fine: compare the message from one witnesses to others to define the money transfer rule.
-        // 2. pay back the witness fee.
-        
-        for (uint j=0; j < providerNumber; j++) {
-            for (uint i=0; i < revealedWitnesses.length; i++) {
+        for (uint i=0; i < revealedWitnesses.length; i++) {
+            uint accumulator = 0;
+            for (uint j=0; j < providerNumber; j++) {
                 for (uint k=0; k < revealedWitnesses.length; k++) {
-                    require (i != k);
-                    sigma[revealedWitnesses[i]][j] += (revealedMessageArray[revealedWitnesses[i]][j] - revealedMessageArray[revealedWitnesses[k]][j]) ** 2;
+                    // here need to check the divide accuracy of solidity version
+                    accumulator += (revealedMessageArray[revealedWitnesses[i]][j] - revealedMessageArray[revealedWitnesses[k]][j]) ** 2;
                 }
             }
+            phi.push(providerNumber * uintWitnessFee - accumulator * Epsilon / (revealedWitnesses.length - 1));
         }
-
-        uint[] memory phi;
-        for (uint i=0; i < revealedWitnesses.length; i++) {
-            for (uint j=0; j < providerNumber; j++) {
-                phi[i] += (uintWitnessFee - (Epsilon/(revealedWitnesses.length - 1) * sigma[revealedWitnesses[i]][j]));
-            }
-        }
-        for (uint i=0; i < revealedWitnesses.length; i++) {
-            refund[revealedWitnesses[i]] = phi[i];
-            revealedWitnesses[i].transfer(refund[revealedWitnesses[i]]);
-        }    
     }
+
+    function myFunction () returns(bool res) internal {
+        
+    }
+    
+
+    
+
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase11: pay service fee.
     uint[] serviceFee;
     bool[] SLAviolated;
+    mapping (address => uint[]) public revealedMessageArray;
+    mapping(address => uint) public refund;
+    address payable [] public revealedWitnesses; 
     address payable [] public SLAContractAddresses;
+    address payable [] public customerAddresses;
+
 
     function payServiceFee ()
         public
@@ -428,7 +448,7 @@ contract AuctionManagement {
         // checkTimeAfter(bidEnd)
         // checkTimeBefore(revealEnd)
         // checkState(AuctionState.monitor)
-        // checkWitness(msg.sender)
+        // checkProvider(msg.sender)
         returns(bool paymentSuccess)
     {   
         uint[] memory count;
@@ -454,7 +474,6 @@ contract AuctionManagement {
         }
         }   
     }
-    
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
@@ -486,14 +505,11 @@ contract CloudSLA {
     //// this is for Cloud provider to set up this SLA and wait for Customer to accept
     function setupSLA() 
         public 
-        payable 
-        checkState(State.Fresh) 
-        checkProvider
-        checkMoney(PPrepayment)
+        // checkState(State.Fresh) 
+        // checkProvider
+        // checkMoney(PPrepayment)
     {
-        require(WitnessNumber == witnessCommittee.length);
-        
-        ProviderBalance += msg.value;
+        require(WitnessNumber == witnessCommittee.length);     
         SLAState = State.Init;
         AcceptTimeEnd = now + AcceptTimeWin;
         emit SLAStateModified(msg.sender, now, State.Init);
@@ -503,10 +519,10 @@ contract CloudSLA {
     function acceptSLA() 
         public 
         payable 
-        checkState(State.Init) 
-        checkCustomer
-        checkTimeIn(AcceptTimeEnd)
-        checkMoney(CPrepayment)
+        // checkState(State.Init) 
+        // checkCustomer(msg.sender)
+        // checkTimeIn(AcceptTimeEnd)
+        // checkMoney(CPrepayment)
     {
         require(WitnessNumber == witnessCommittee.length);
         
