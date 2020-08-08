@@ -2,11 +2,11 @@ pragma solidity > 0.6.5;
 
 /**
  * The AuctionManagement contract manage the lifecycle of federated cloud auction.
- * ;==========================================
- * ; Title: Smart Contracts for Cloud Auction 
- * ; Author: Zeshun Shi
- * ; Email: z.shi2@uva.nl
- * ;==========================================
+ * ==========================================
+ *  Title: Smart Contracts for Cloud Auction 
+ *  Author: Zeshun Shi
+ *  Email: z.shi2@uva.nl
+ * ==========================================
  */
 contract CloudAuction {
 
