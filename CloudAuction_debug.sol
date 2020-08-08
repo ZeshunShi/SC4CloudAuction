@@ -42,11 +42,11 @@ contract CloudAuction {
         require (customerAddresses[0] == _user, "The current user is not the correct customer"); 
         _;          
     }
-    // modifier checkWitness(address _user) 
-    // {    
-    //     require(witnessPool[_user].registered == true, "The current user is not a registered witness");
-    //     _;          
-    // }
+    modifier checkWitness(address _user) 
+    {    
+        require(witnessPool[_user].registered == true, "The current user is not a registered witness");
+        _;          
+    }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase1: initialize auction contract, set auction procedures
@@ -104,7 +104,8 @@ contract CloudAuction {
     }
     mapping(address => AuctionItem) public auctionItemStructs;
     address payable [] public customerAddresses;
-    uint unitWitnessFee = 1e17;
+    uint public unitWitnessFee = 1e17;      // To ensure each witness tell the truth, unitWitnessFee should weakly balanced with Epsilon * providerNumber.
+
 
     /**
      * Customer Interface:
@@ -379,412 +380,415 @@ contract CloudAuction {
     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase10: customer withdraw the witnessFee
-//     /**
-//      * Customer Interface:
-//      * This is for customer to withdraw the witness fee, if the auction is failed (3 situations)
-//      * */
-//     function customerWithdrawWitnessFee()
-//         public  
-//         checkState(State.Canceled)
-//         // checkTimeAfter(revealEnd)
-//         // checkTimeBefore(withdrawEnd)
-//         checkCustomer(msg.sender)
-//         returns(bool withdrawSuccess)
-//     {
-//         require (auctionItemStructs[msg.sender].witnessFee > 0);
-//         if (winnerBidders.length == 0) {
-//             refund[msg.sender] = auctionItemStructs[msg.sender].witnessFee;
-//             msg.sender.transfer(refund[msg.sender]);
-//             auctionItemStructs[msg.sender].witnessFee = 0;         
-//         }
-//         return true;
-//     }
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase11: customer generate SLA contracts for winner providers, respectively.
-//     struct ContractInfo {
-//         uint index; // the id of the SLA contract in the address pool
-//         uint serviceFee; // the service fee should be the bidding price
-//         bool accepted; // true: this contract has been accepted
-//     }    
-//     mapping(address => ContractInfo) SLAContractPool;
-//     address [] public SLAContractAddresses;
-
-//     /**
-//      * Customer Interface:
-//      * This is for customer to 1) generate the SLA contracts for winner providers and 2) prepay the service fee
-//      * */
-//     function genSLAContract() 
-//         public
-//         payable
-//         checkState(State.Pending)
-//         checkTimeBefore(serviceStart)
-//         checkCustomer(msg.sender)
-//         returns(address[] memory)
-        
-//     {
-//         require ( winnerBidders.length > 0);   
-//         for (uint i=0; i < winnerBidders.length; i++) {
-//             require (msg.value ==  winnerBids[i]);
-//             address newSLAContract = address (new CloudSLA(this, winnerBidders[i], msg.sender, auctionItemStructs[msg.sender].auctionDetails, winnerBids[i]));
-//             SLAContractPool[newSLAContract].index = SLAContractAddresses.length;
-//             SLAContractPool[newSLAContract].serviceFee = msg.value;
-//             SLAContractAddresses.push(newSLAContract);
-//         }
-//         if (SLAContractAddresses.length == winnerBidders.length){
-//             emit SLAContractsGenerated(msg.sender, now, SLAContractAddresses);
-//             return SLAContractAddresses;
-//         }
-//     }
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase12: providers accept the SLA contracts
-//     /**
-//      * Provider Interface:
-//      * This is for Providers to accept the SLA contracts
-//      * */
-//     function acceptSLA() 
-//         public 
-//         payable 
-//         checkState(State.Pending)
-//         checkTimeBefore(serviceStart)
-//         checkProvider(msg.sender)
-//     {   
-//         require ((SLAContractAddresses.length == winnerBidders.length));   
-//         for (uint i=0; i < winnerBidders.length; i++) {
-//             if (winnerBidders[i] == msg.sender){
-//             SLAContractPool[SLAContractAddresses[i]].accepted = true;
-//             }
-//         }
-//     }
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase13: normal user register as Witnesses and monitor the federated Cloud service.
-//     struct Witness {
-//         uint index;         ///the index of the witness in the address pool, if it is registered
-//         bool registered;    ///true: this witness has registered.
-//         address[] SLAContracts;    ////the address of SLA contract
-//     }
-//     mapping(address => Witness) public witnessPool;
-//     address [] public witnessAddrs;    ////the address pool of witnesses
-
-//     /**
-//      * Witness Interface:
-//      * This is for normal users register as witnesses to monitor the federated Cloud service
-//      * */
-//     function witnessRegister()
-//         public
-//         checkState(State.Pending)
-//         checkTimeAfter(revealEnd)
-//         checkTimeBefore(serviceStart)
-//         returns(bool registerSuccess)
-//     {
-//         require (witnessAddrs.length <= 100);
-//         require (witnessPool[msg.sender].registered = false);
-//         witnessPool[msg.sender].index = witnessAddrs.length;
-//         witnessPool[msg.sender].registered = true;
-//         witnessPool[msg.sender].SLAContracts = SLAContractAddresses;
-//         witnessAddrs.push(msg.sender);
-//         return true;
-//     }
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase14: customer to check the whether the registered witnesses number is enough && all SLAs has been signed 
-//     /**
-//      * Customer Interface:
-//      * This is for customer to check the whether the registered witnesses number is enough && all SLAs has been signed 
-//      * */
-//     function checkAuctionSettled () 
-//         public
-//         checkState(State.Pending)
-//         checkCustomer(msg.sender)
-//     {   
-//         uint counter;
-//         for (uint i=0; i < SLAContractAddresses.length; i++) {
-//             if (SLAContractPool[SLAContractAddresses[i]].accepted = true) {
-//                 counter++;
-//             }
-//         }   
-//         if (witnessAddrs.length >= auctionItemStructs[customerAddresses[0]].witnessNumber && counter == SLAContractAddresses.length){
-//             AuctionState = State.Settled;
-//             emit AuctionStateModified(msg.sender, now, State.Settled);
-//         } else {
-//             AuctionState = State.Canceled;
-//             emit AuctionStateModified(msg.sender, now, State.Canceled);
-//         }
-//     }
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase15: registered witnesses submit sealed monitoring messages.
-//     mapping (address => bytes32[]) sealedMessageArray;
-
-//     /**
-//      * Witness Interface:
-//      * This is for registered witnesses to submit the (sealed) monitoring messages array for different SLAs in the federated cloud service
-//      * */
-//     function submitMessages(bytes32[] memory _sealedMessage) 
-//         public
-//         payable
-//         checkState(State.Settled)
-//         checkTimeAfter(serviceEnd)
-//         checkWitness(msg.sender)
-//         returns(bool reportSuccess)
-//     {   
-//         require (witnessPool[msg.sender].registered = true);       
-//         require (_sealedMessage.length == auctionItemStructs[customerAddresses[0]].providerNumber);   
-//         sealedMessageArray[msg.sender] = _sealedMessage;
-//         return true;
-//     }
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase16: registered witnesses reveal sealed messages.
-//     mapping (address => uint[]) public revealedMessageArray;
-//     address payable [] public revealedWitnesses; 
-
-//     /**
-//      * Witness Interface:
-//      * This is for registered witnesses(who submitted the sealed messages) to reveal the message array
-//      * */
-//     function revealMessages (uint[] memory _message, uint _witnessKey)
-//         public
-//         payable
-//         checkState(State.Settled)
-//         checkTimeAfter(serviceEnd)
-//         checkWitness(msg.sender)
-//         returns(bool revealSuccess)
-//     {
-//         require (_message.length == auctionItemStructs[customerAddresses[0]].providerNumber && _witnessKey != 0);
-//         uint SLAsNumber;
-//         for (uint i=0; i < auctionItemStructs[customerAddresses[0]].providerNumber; i++) {
-//             // check all the monitoring messages (for k SLAs) in the rang 0-10.
-//             require (_message[i] >= 0 && _message[i] <= 10);
-//             if (keccak256(abi.encodePacked(_message[i], _witnessKey)) == sealedMessageArray[msg.sender][i]){
-//                 SLAsNumber++;
-//             }
-//         }
-//         // check all the monitoring messages(for k SLAs) in the array reveled successfully.
-//         if (SLAsNumber == auctionItemStructs[customerAddresses[0]].providerNumber) {
-//             revealedMessageArray[msg.sender] = _message;
-//             revealedWitnesses.push(msg.sender);
-//             return true;
-//         } else if (SLAsNumber < auctionItemStructs[customerAddresses[0]].providerNumber) {
-//             return false;
-//         }
-//     }
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase17: customer calculate and place the witness fee
-//     uint public providerNumber = 3;
-//     uint public uintWitnessFee = 4*100;     // To ensure each witness tell the truth, uintWitnessFee should weakly balanced with Epsilon.
-//     uint public Epsilon = 4;
-//     mapping (address => uint) witnessFee;
-
-//     // mapping (address => uint[]) public revealedMessageArray;
-//     // address payable [] public revealedWitnesses; 
-
-//     // function addRevealedMessageArray (uint[] memory _revealedMessageArray) 
-//     //     public
-//     // {
-//     //     revealedMessageArray[msg.sender] = _revealedMessageArray;
-//     //     revealedWitnesses.push(msg.sender);
-//     // }
-   
-//     /**
-//      * Customer Interface:
-//      * This is for customer to calculate the wisness fee for all the witnesses based on their report result
-//      * */ 
-//     function calculateWitnessFee ()
-//         public
-//         checkState(State.Settled)
-//         checkTimeAfter(serviceEnd)
-//         checkCustomer(msg.sender)
-//         returns(bool calculateSuccess)
-//     {
-
-//         require (revealedWitnesses.length >= providerNumber * 2);
-        
-//         for (uint i=0; i < revealedWitnesses.length; i++) {
-//             uint accumulator = 0;
-//             for (uint j=0; j < providerNumber; j++) {
-//                 for (uint k=0; k < revealedWitnesses.length; k++) {
-//                     // here need to check the divide accuracy of solidity version
-//                     accumulator += (revealedMessageArray[revealedWitnesses[i]][j] - revealedMessageArray[revealedWitnesses[k]][j]) ** 2;
-//                 }
-//             }
-//             witnessFee[revealedWitnesses[i]] = uintWitnessFee - accumulator * Epsilon / (revealedWitnesses.length - 1);
-//         }
-//         return true;
-//     }
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase18: witnesses withdraw the witness fee
-//     /**
-//      * Witness Interface:
-//      * This is for registered witnesses to withdraw the witness fee (if the message array is revealed successfully)
-//      * */ 
-//     function witnessWithdraw()
-//         public
-//         checkState(State.Settled)
-//         checkTimeAfter(serviceEnd)
-//         checkWitness(msg.sender)
-//         returns(bool withdrawSuccess)
-//     {
-//         require(witnessFee[msg.sender] > 0);
-//         msg.sender.transfer(witnessFee[msg.sender]);
-//         witnessFee[msg.sender] = 0;
-//         return true;
-//     }
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase19: customer check SLA violation and place the service fee 
-//     mapping (address => bool) public SLAViolated;
-//     address [] public SLAViolatedAddresses;
-    
-//     // for debug
-//     // address payable [] public SLAContractAddresses;
-//     // mapping (address => uint[]) public revealedMessageArray;
-//     // address payable [] public revealedWitnesses; 
-//     // mapping (address => bool) public SLAViolated;
-//     // address [] public SLAViolatedAddresses;
-//     // address payable [] public winnerBidders;
-//     // uint [] public winnerBids;
-//     // struct ContractInfo {
-//     //     uint index; // the id of the SLA contract in the address pool
-//     //     uint serviceFee; // the service fee should be the bidding price
-//     //     bool accepted; // true: this contract has been accepted
-//     // }    
-//     // mapping(address => ContractInfo) SLAContractPool;
-    
-//     // function addRevealedMessageArray(uint[] memory _revealedMessageArray) public { 
-//     //     revealedMessageArray[msg.sender] = _revealedMessageArray;
-//     //     revealedWitnesses.push () = msg.sender;
-//     // }
-    
-//     // function addSLAContractAddresses() public {
-//     //     SLAContractAddresses.push () = msg.sender;
-//     // }
-    
-//     /**
-//      * Customer Interface:
-//      * This is for customer to check the SLA violation result and place the service fee 
-//      * */ 
-//     function checkSLAViolation ()
-//         public
-//         payable
-//         checkState(State.Settled)
-//         checkTimeAfter(serviceEnd)
-//         checkCustomer(msg.sender)
-//         returns(bool checkSuccess)
-//     {   
-//         uint counter;
-//         for (uint j=0; j < SLAContractAddresses.length; j++) {
-//             for (uint i=0; i < revealedWitnesses.length; i++) {
-//                 // The message space is [1,10], the mean is 5
-//                 if (revealedMessageArray[revealedWitnesses[i]][j] > 5) {
-//                     counter ++; 
-//                 }
-//             }
-//             if (counter > revealedWitnesses.length/2) {
-//                 SLAViolated[SLAContractAddresses[j]] = true;
-//                 SLAViolatedAddresses.push() = SLAContractAddresses[j];
-//             } else if (counter <= revealedWitnesses.length/2) {
-//                 SLAViolated[SLAContractAddresses[j]] = false;
-//             }
-//             counter = 0;
-//         }              
-//         for (uint j=0; j < SLAContractAddresses.length; j++) {
-//             if (SLAViolatedAddresses.length == 0){
-//                 AuctionState = State.Successful;
-//                 emit AuctionStateModified(msg.sender, now, State.Successful);
-//             } else if (SLAViolatedAddresses.length != 0) {
-//                 AuctionState = State.Violated;
-//                 emit AuctionStateModified(msg.sender, now, State.Violated);
-//         }
-//         }
-//         return true;   
-//     }
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase20: customer withdraw the service fee
-//     /**
-//      * Customer Interface:
-//      * This is for customer to withdraw the service fee (if the SLA[j] is violated)
-//      * */ 
-//     function customerWithdrawServiceFee()
-//         public
-//         checkState(State.Violated)
-//         checkTimeAfter(serviceEnd)
-//         checkCustomer(msg.sender)
-//         returns(bool withdrawSuccess)
-
-//     {
-//         for (uint i=0; i < SLAContractAddresses.length; i++) {
-//             if (SLAViolated[SLAContractAddresses[i]] = true) {
-//                 msg.sender.transfer(SLAContractPool[SLAContractAddresses[i]].serviceFee);
-//                 SLAContractPool[SLAContractAddresses[i]].serviceFee = 0;
-//             }
-//         }
-//         return true;
-//     }
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase21: provider withdraw the service fee
-//     /**
-//      * Provider Interface:
-//      * This is for provider to withdraw the service fee (if the SLA[j] is not violated)
-//      * */ 
-//     function providerWithdrawServiceFee()
-//         public
-//         checkTimeAfter(serviceEnd)
-//         checkProvider(msg.sender)
-//         returns(bool withdrawSuccess)
-//     {
-//         if (AuctionState == State.Successful || AuctionState == State.Violated){
-//             for (uint i=0; i < SLAContractAddresses.length; i++) {
-//                 require (SLAViolated[SLAContractAddresses[i]] = false);               
-//                 if (winnerBidders[i] == msg.sender){
-//                     msg.sender.transfer(SLAContractPool[SLAContractAddresses[i]].serviceFee);
-//                     SLAContractPool[SLAContractAddresses[i]].serviceFee = 0;
-//                 }
-//             }
-//         return true;
-//         }
-//     }
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// // phase22: customer reset the auction
-//     /**
-//      * Customer Interface:
-//      * This is for customer to reset the auction to fresh state
-//      * */ 
-//     function resetSLA()
-//         public
-//         checkReset()
-//         checkTimeAfter(serviceEnd)
-//         checkCustomer(msg.sender)
-//     {
-//         delete winnerBidders;
-//         delete winnerBids;
-//         delete loserBidders;
-//         delete loserBids;
-//         AuctionState = State.Fresh;
-//         emit AuctionStateModified(msg.sender, now, State.Fresh);
-//     }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase10: customer withdraw the witnessFee
+    /**
+     * Customer Interface:
+     * This is for customer to withdraw the witness fee, if the auction is failed (3 situations)
+     * */
+    function customerWithdrawWitnessFee()
+        public  
+        checkState(State.Canceled)
+        // checkTimeAfter(revealEnd)
+        // checkTimeBefore(withdrawEnd)
+        checkCustomer(msg.sender)
+        returns(bool withdrawSuccess)
+    {
+        require (auctionItemStructs[msg.sender].witnessFee > 0);
+        if (winnerBidders.length == 0) {
+            refund[msg.sender] = auctionItemStructs[msg.sender].witnessFee;
+            msg.sender.transfer(refund[msg.sender]);
+            auctionItemStructs[msg.sender].witnessFee = 0;         
+        }
+        return true;
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase11: customer generate SLA contracts for winner providers, respectively.
+    struct ContractInfo {
+        uint index; // the id of the SLA contract in the address pool
+        uint serviceFee; // the service fee should be the bidding price
+        bool accepted; // true: this contract has been accepted
+    }    
+    mapping(address => ContractInfo) public SLAContractPool;
+    address [] public SLAContractAddresses;
+
+    /**
+     * Customer Interface:
+     * This is for customer to 1) generate the SLA contracts for winner providers and 2) prepay the total service fee
+     * */
+    function genSLAContract() 
+        public
+        payable
+        checkState(State.Pending)
+        // checkTimeBefore(serviceStart)
+        checkCustomer(msg.sender)
+        returns(address[] memory)
+        
+    {
+        require ( winnerBidders.length > 0);   
+        for (uint i=0; i < winnerBidders.length; i++) {
+            address newSLAContract = address (new CloudSLA(this, winnerBidders[i], msg.sender, auctionItemStructs[msg.sender].auctionDetails, winnerBids[i]));
+            SLAContractPool[newSLAContract].index = SLAContractAddresses.length;
+            SLAContractPool[newSLAContract].serviceFee = winnerBids[i];
+            SLAContractAddresses.push(newSLAContract);
+        }
+        uint totalBids;
+        for (uint i=0; i < winnerBids.length; i++) {
+            totalBids += winnerBids[i];
+        }
+        require (msg.value == totalBids);
+
+        if (SLAContractAddresses.length == winnerBidders.length){
+            emit SLAContractsGenerated(msg.sender, now, SLAContractAddresses);
+            return SLAContractAddresses;
+        }
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase12: providers accept the SLA contracts
+    /**
+     * Provider Interface:
+     * This is for Providers to accept the SLA contracts
+     * */
+    function acceptSLA() 
+        public 
+        payable 
+        checkState(State.Pending)
+        // checkTimeBefore(serviceStart)
+        checkProvider(msg.sender)
+    {   
+        require (SLAContractAddresses.length == winnerBidders.length);   
+        for (uint i=0; i < winnerBidders.length; i++) {
+            if (winnerBidders[i] == msg.sender){
+            SLAContractPool[SLAContractAddresses[i]].accepted = true;
+            }
+        }
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase13: normal user register as Witnesses and monitor the federated Cloud service.
+    struct Witness {
+        uint index;         ///the index of the witness in the address pool, if it is registered
+        bool registered;    ///true: this witness has registered.
+        address[] SLAContracts;    ////the address of SLA contract
+    }
+    mapping(address => Witness) public witnessPool;
+    address [] public witnessAddrs;    ////the address pool of witnesses
+
+    /**
+     * Witness Interface:
+     * This is for normal users register as witnesses to monitor the federated Cloud service
+     * */
+    function witnessRegister()
+        public
+        checkState(State.Pending)
+        // checkTimeAfter(revealEnd)
+        // checkTimeBefore(serviceStart)
+        returns(bool registerSuccess)
+    {
+        require (witnessAddrs.length <= 100);
+        require (witnessPool[msg.sender].registered == false);
+        witnessPool[msg.sender].index = witnessAddrs.length;
+        witnessPool[msg.sender].registered = true;
+        witnessPool[msg.sender].SLAContracts = SLAContractAddresses;
+        witnessAddrs.push(msg.sender);
+        return true;
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase14: customer to check the whether the registered witnesses number is enough && all SLAs has been signed 
+    /**
+     * Customer Interface:
+     * This is for customer to check the whether the registered witnesses number is enough && all SLAs has been signed 
+     * */
+    function checkAuctionSettled () 
+        public
+        checkState(State.Pending)
+        checkCustomer(msg.sender)
+    {   
+        uint counter;
+        for (uint i=0; i < SLAContractAddresses.length; i++) {
+            if (SLAContractPool[SLAContractAddresses[i]].accepted = true) {
+                counter++;
+            }
+        }   
+        if (witnessAddrs.length >= auctionItemStructs[customerAddresses[0]].witnessNumber && counter == SLAContractAddresses.length){
+            AuctionState = State.Settled;
+            emit AuctionStateModified(msg.sender, now, State.Settled);
+        } else {
+            AuctionState = State.Canceled;
+            emit AuctionStateModified(msg.sender, now, State.Canceled);
+        }
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase15: registered witnesses submit sealed monitoring messages.
+    mapping (address => bytes32[]) sealedMessageArray;
+
+    /**
+     * Witness Interface:
+     * This is for registered witnesses to submit the (sealed) monitoring messages array for different SLAs in the federated cloud service
+     * */
+    function submitMessages(bytes32[] memory _sealedMessage) 
+        public
+        payable
+        checkState(State.Settled)
+        // checkTimeAfter(serviceEnd)
+        checkWitness(msg.sender)
+        returns(bool reportSuccess)
+    {   
+        require (witnessPool[msg.sender].registered = true);       
+        require (_sealedMessage.length == auctionItemStructs[customerAddresses[0]].providerNumber);   
+        sealedMessageArray[msg.sender] = _sealedMessage;
+        return true;
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase16: registered witnesses reveal sealed messages.
+    mapping (address => uint[]) public revealedMessageArray;
+    address payable [] public revealedWitnesses; 
+
+    /**
+     * Witness Interface:
+     * This is for registered witnesses(who submitted the sealed messages) to reveal the message array
+     * */
+    function revealMessages (uint[] memory _message, uint _witnessKey)
+        public
+        payable
+        checkState(State.Settled)
+        // checkTimeAfter(serviceEnd)
+        checkWitness(msg.sender)
+        returns(bool revealSuccess)
+    {
+        require (_message.length == auctionItemStructs[customerAddresses[0]].providerNumber && _witnessKey != 0);
+        uint SLAsNumber;
+        for (uint i=0; i < auctionItemStructs[customerAddresses[0]].providerNumber; i++) {
+            // check all the monitoring messages (for k SLAs) in the rang 0-10.
+            require (_message[i] >= 0 && _message[i] <= 10);
+            if (keccak256(abi.encodePacked(_message[i], _witnessKey)) == sealedMessageArray[msg.sender][i]){
+                SLAsNumber++;
+            }
+        }
+        // check all the monitoring messages(for k SLAs) in the array reveled successfully.
+        if (SLAsNumber == auctionItemStructs[customerAddresses[0]].providerNumber) {
+            revealedMessageArray[msg.sender] = _message;
+            revealedWitnesses.push(msg.sender);
+            return true;
+        } else if (SLAsNumber < auctionItemStructs[customerAddresses[0]].providerNumber) {
+            return false;
+        }
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase17: customer calculate and place the witness fee
+    uint public Epsilon = 4;
+    mapping (address => uint) public witnessFee;
+
+    // mapping (address => uint[]) public revealedMessageArray;
+    // address payable [] public revealedWitnesses; 
+
+    // function addRevealedMessageArray (uint[] memory _revealedMessageArray) 
+    //     public
+    // {
+    //     revealedMessageArray[msg.sender] = _revealedMessageArray;
+    //     revealedWitnesses.push(msg.sender);
+    // }
+   
+    /**
+     * Customer Interface:
+     * This is for customer to calculate the wisness fee for all the witnesses based on their report result
+     * */ 
+    function calculateWitnessFee ()
+        public
+        checkState(State.Settled)
+        // checkTimeAfter(serviceEnd)
+        checkCustomer(msg.sender)
+        returns(bool calculateSuccess)
+    {
+
+        require (revealedWitnesses.length == auctionItemStructs[customerAddresses[0]].witnessNumber);
+        
+        for (uint i=0; i < revealedWitnesses.length; i++) {
+            uint accumulator = 0;
+            for (uint j=0; j < auctionItemStructs[customerAddresses[0]].providerNumber; j++) {
+                for (uint k=0; k < revealedWitnesses.length; k++) {
+                    // here need to check the divide accuracy of solidity version
+                    accumulator += (revealedMessageArray[revealedWitnesses[i]][j] - revealedMessageArray[revealedWitnesses[k]][j]) ** 2;
+                }
+            }
+            witnessFee[revealedWitnesses[i]] = unitWitnessFee - accumulator * Epsilon / (revealedWitnesses.length - 1);
+        }
+        return true;
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase18: witnesses withdraw the witness fee
+    /**
+     * Witness Interface:
+     * This is for registered witnesses to withdraw the witness fee (if the message array is revealed successfully)
+     * */ 
+    function witnessWithdraw()
+        public
+        checkState(State.Settled)
+        // checkTimeAfter(serviceEnd)
+        checkWitness(msg.sender)
+        returns(bool withdrawSuccess)
+    {
+        require(witnessFee[msg.sender] > 0);
+        msg.sender.transfer(witnessFee[msg.sender]);
+        witnessFee[msg.sender] = 0;
+        return true;
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase19: customer check SLA violation and place the service fee 
+    mapping (address => bool) public SLAViolated;
+    address [] public SLAViolatedAddresses;
+    
+    // for debug
+    // address payable [] public SLAContractAddresses;
+    // mapping (address => uint[]) public revealedMessageArray;
+    // address payable [] public revealedWitnesses; 
+    // mapping (address => bool) public SLAViolated;
+    // address [] public SLAViolatedAddresses;
+    // address payable [] public winnerBidders;
+    // uint [] public winnerBids;
+    // struct ContractInfo {
+    //     uint index; // the id of the SLA contract in the address pool
+    //     uint serviceFee; // the service fee should be the bidding price
+    //     bool accepted; // true: this contract has been accepted
+    // }    
+    // mapping(address => ContractInfo) SLAContractPool;
+    
+    // function addRevealedMessageArray(uint[] memory _revealedMessageArray) public { 
+    //     revealedMessageArray[msg.sender] = _revealedMessageArray;
+    //     revealedWitnesses.push () = msg.sender;
+    // }
+    
+    // function addSLAContractAddresses() public {
+    //     SLAContractAddresses.push () = msg.sender;
+    // }
+    
+    /**
+     * Customer Interface:
+     * This is for customer to check the SLA violation result and place the service fee 
+     * */ 
+    function checkSLAViolation ()
+        public
+        payable
+        checkState(State.Settled)
+        // checkTimeAfter(serviceEnd)
+        checkCustomer(msg.sender)
+        returns(bool checkSuccess)
+    {   
+        uint counter;
+        for (uint j=0; j < SLAContractAddresses.length; j++) {
+            for (uint i=0; i < revealedWitnesses.length; i++) {
+                // The message space is [1,10], the mean is 5
+                if (revealedMessageArray[revealedWitnesses[i]][j] > 5) {
+                    counter ++; 
+                }
+            }
+            if (counter > revealedWitnesses.length/2) {
+                SLAViolated[SLAContractAddresses[j]] = true;
+                SLAViolatedAddresses.push() = SLAContractAddresses[j];
+            } else if (counter <= revealedWitnesses.length/2) {
+                SLAViolated[SLAContractAddresses[j]] = false;
+            }
+            counter = 0;
+        }              
+        for (uint j=0; j < SLAContractAddresses.length; j++) {
+            if (SLAViolatedAddresses.length == 0){
+                AuctionState = State.Successful;
+                emit AuctionStateModified(msg.sender, now, State.Successful);
+            } else if (SLAViolatedAddresses.length != 0) {
+                AuctionState = State.Violated;
+                emit AuctionStateModified(msg.sender, now, State.Violated);
+        }
+        }
+        return true;   
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase20: customer withdraw the service fee
+    /**
+     * Customer Interface:
+     * This is for customer to withdraw the service fee (if the SLA[j] is violated)
+     * */ 
+    function customerWithdrawServiceFee()
+        public
+        checkState(State.Violated)
+        // checkTimeAfter(serviceEnd)
+        checkCustomer(msg.sender)
+        returns(bool withdrawSuccess)
+
+    {
+        for (uint i=0; i < SLAContractAddresses.length; i++) {
+            if (SLAViolated[SLAContractAddresses[i]] == true) {
+                msg.sender.transfer(SLAContractPool[SLAContractAddresses[i]].serviceFee);
+                SLAContractPool[SLAContractAddresses[i]].serviceFee = 0;
+            }
+        }
+        return true;
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase21: provider withdraw the service fee
+    /**
+     * Provider Interface:
+     * This is for provider to withdraw the service fee (if the SLA[j] is not violated)
+     * */ 
+    function providerWithdrawServiceFee()
+        public
+        payable
+        // checkTimeAfter(serviceEnd)
+        checkProvider(msg.sender)
+        returns(bool withdrawSuccess)
+    {
+        if (AuctionState == State.Successful || AuctionState == State.Violated){
+            for (uint i=0; i < SLAContractAddresses.length; i++) {
+                if (winnerBidders[i] == msg.sender && SLAViolated[SLAContractAddresses[i]] == false){
+                    msg.sender.transfer(SLAContractPool[SLAContractAddresses[i]].serviceFee);
+                    SLAContractPool[SLAContractAddresses[i]].serviceFee = 0;
+                    return true;
+                }
+            }
+        }
+    }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase22: customer reset the auction
+    /**
+     * Customer Interface:
+     * This is for customer to reset the auction to fresh state
+     * */ 
+    function resetSLA()
+        public
+        // checkReset()
+        // checkTimeAfter(serviceEnd)
+        // checkCustomer(msg.sender)
+    {
+        delete winnerBidders;
+        delete winnerBids;
+        delete loserBidders;
+        delete loserBids;
+        AuctionState = State.Fresh;
+        emit AuctionStateModified(msg.sender, now, State.Fresh);
+    }
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
 
