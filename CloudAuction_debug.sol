@@ -20,37 +20,46 @@ contract CloudAuction {
     // this is to log event that _who modified the Auction state to _newstate at time stamp _time
     event AuctionStateModified(address indexed _who, uint _time, State _newstate);
     // this is to log event that _who generate the SLA contract _contractAddr at time stamp _time
-    event SLAContractGen(address indexed _who, uint _time, address _contractAddr);
+    event SLAContractsGenerated(address indexed _who, uint _time, address[] _contractAddr);
 
 
     modifier checkTimeBefore(uint _time) 
     {   
-        require(now < _time);
-         "The time is not before the time point"; 
+        require(now < _time, "The time is not before the time point");
+        _;          
     }
     modifier checkTimeAfter(uint _time)
     {    
-        require(now > _time);
-        "The time is not after the time point"; 
+        require(now > _time, "The time is not after the time point");
+        _;          
     }
     modifier checkState(State _state){
-        require(AuctionState == _state);
-        "The aution is not in the right state;
+        require(AuctionState == _state, "The aution is not in the right state");
+        _;          
     }
+    modifier checkReset(){
+        require(AuctionState == State.Violated || AuctionState == State.Successful || AuctionState == State.Successful, "The aution is not ready to reset");
+        _;          
+    }   
     modifier checkProvider(address _user) 
     {    
-        require(Provider[_user].registered);
-        "The current user is not a registered provider";
+        require(providerPool[_user].registered = true, "The current user is not a registered provider");
+        _;          
     }
     modifier checkCustomer(address _user) { 
-        require (customer = _user); 
-        "The current user is not the correct customer";; 
+        require (customerAddresses[0] = _user, "The current user is not the correct customer"); 
+        _;          
+    }
+    modifier checkWitness(address _user) 
+    {    
+        require(witnessPool[_user].registered = true, "The current user is not a registered witness");
+        _;          
     }
 
 
     /**
      * Customer Interface:
-     * This is constructor for someone (Normally the customer) to initiate an the time windows of AuctionManagement contract
+     * This is constructor for someone (Normally the customer) to initiate the time durations for AuctionManagement contract
      * */
     constructor(uint _registeTime, uint _biddingTime, uint _revealTime, uint _withdrawTime, uint _serviceTime) 
         public 
@@ -59,12 +68,17 @@ contract CloudAuction {
         require (_biddingTime > 0);
         require (_revealTime > 0);
         require (_withdrawTime > 0);
+        require (_serviceTime > 0);
         
         startTime = now;
-        registeEnd = startTime + _registeTime;
+        setupEnd = startTime + _setupTime
+        registeEnd = setupEnd + _registeTime;
         biddingEnd = registeEnd + _biddingTime;
         revealEnd = biddingEnd + _revealTime;
-        refundEnd = revealEnd + _withdrawTime;
+        withdrawEnd = revealEnd + _withdrawTime;
+
+        serviceStart = withdrawEnd + 1 days;
+        serviceEnd = serviceStart + _serviceTime;
 
         AuctionState = State.Fresh;
         emit AuctionStateModified(msg.sender, now, State.Fresh);
@@ -84,15 +98,17 @@ contract CloudAuction {
         string auctionDetails;
         uint witnessFee; 
         uint8 providerNumber;
+        uint8 witnessNumber;
     }
     mapping(address => AuctionItem) public auctionItemStructs;
     address payable [] public customerAddresses;
+    uint unitWitnessFee = 1e17;
 
     /**
      * Customer Interface:
      * This is for customer to 1) setup the auction, 2) publish the auction details, and 3) prepay the witnessfee
      * */
-    function setupAuction (string memory _customerName, string memory _auctionDetails, bytes32 _sealedReservePrice, uint8 _providerNumber) 
+    function setupAuction (string memory _customerName, string memory _auctionDetails, bytes32 _sealedReservePrice, uint8 _providerNumber, uint8 _witnessNumber) 
         public
         payable
         checkState(State.Fresh)
@@ -102,12 +118,13 @@ contract CloudAuction {
     {
         require (_sealedReservePrice.length != 0 && bytes(_auctionDetails).length > 0);
         require (customerAddresses.length == 0);
-        require (msg.value >= 10e18);
+        require (msg.value >=  (_witnessNumber * uintWitnessFee) / 2 );
         auctionItemStructs[msg.sender].cutomerName = _customerName;
         auctionItemStructs[msg.sender].sealedReservePrice = _sealedReservePrice;
         auctionItemStructs[msg.sender].auctionDetails = _auctionDetails;
-        auctionItemStructs[msg.sender].providerNumber = _providerNumber
-        auctionItemStructs[msg.sender].witnessFee = msg.value;  // todo: check the unitWitnessFee
+        auctionItemStructs[msg.sender].providerNumber = _providerNumber;
+        auctionItemStructs[msg.sender].witnessNumber = _witnessNumber;
+        auctionItemStructs[msg.sender].witnessFee = msg.value;
         customerAddresses.push(msg.sender);
         return true;        
     }
@@ -177,7 +194,7 @@ contract CloudAuction {
     struct Bid {
         string providerName;
         bytes32 sealedBid;
-        uint bidderDeposit;
+        uint witnessFee;
     }
     mapping(address => Bid) public bidStructs;
     address [] public bidderAddresses;
@@ -197,10 +214,10 @@ contract CloudAuction {
     {
         require (_sealedBid.length != 0 && bytes(_providerName).length > 0);   
         require (bidderAddresses.length <= 20);
-        require (msg.value >= 10e18);
+        require (msg.value >=  (_witnessNumber * uintWitnessFee) / (2 * providerNumber) );
         bidStructs[msg.sender].sealedBid = _sealedBid;
         bidStructs[msg.sender].providerName = _providerName;
-        bidStructs[msg.sender].bidderDeposit = msg.value;
+        bidStructs[msg.sender].witnessFee = msg.value;
         bidderAddresses.push(msg.sender);
         return true;
     }
@@ -303,7 +320,6 @@ contract CloudAuction {
             sumBids += revealedBids[i];
         }
         
-        // require(sumBids <= reservePrice, "The lowest k bids do not meet the requirements of the customer's reserve Price, auction failed."); 
         for (uint i=0; i < revealedBidders.length; i++) {
             if( i< providerNumber && sumBids <= reservePrice) {
                 winnerBids.push() = revealedBids[i];
@@ -339,18 +355,21 @@ contract CloudAuction {
      * */
     function providerWithdrawWitnessFee()
         public  
-        checkState(State.Canceled || State.Pending)
         checkTimeAfter(revealEnd)
         checkTimeBefore(withdrawEnd)
         checkProvider(msg.sender)
         returns(bool withdrawSuccess)
     { 
-        require (bidStructs[msg.sender].bidderDeposit > 0);
+        require (bidStructs[msg.sender].witnessFee > 0);
         require (loserBidders.length != 0);
-        refund[msg.sender] = bidStructs[msg.sender].bidderDeposit;
-        msg.sender.transfer(refund[msg.sender]);
-        bidStructs[msg.sender].bidderDeposit = 0;
-        return true;
+        for (uint i=0; i < loserBidders.length; i++) {
+            if (loserBidders[i] == msg.sender){
+            refund[msg.sender] = bidStructs[msg.sender].witnessFee;
+            msg.sender.transfer(refund[msg.sender]);
+            bidStructs[msg.sender].witnessFee = 0;
+            return true;
+            }
+        }        
     }
 
     /**
@@ -365,7 +384,7 @@ contract CloudAuction {
         checkCustomer(msg.sender)
         returns(bool withdrawSuccess)
     {
-        require (msg.sender = customerAddresses[0]);
+        require (auctionItemStructs[msg.sender].witnessFee > 0);
         if (winnerBidders.length == 0) {
             refund[msg.sender] = auctionItemStructs[msg.sender].witnessFee;
             msg.sender.transfer(refund[msg.sender]);
@@ -379,64 +398,57 @@ contract CloudAuction {
 // phase6: generate SLA contracts for winner providers, respectively.
     struct ContractInfo {
         uint index; // the id of the SLA contract in the address pool
-        bool valid;    // true: this contract has been valided
         uint serviceFee; // the service fee should be the bidding price
+        bool accepted; // true: this contract has been accepted
     }    
     mapping(address => ContractInfo) SLAContractPool;
     address [] public SLAContractAddresses;
 
     /**
-     * Provider Interface:
-     * This is for winner providers to generate the SLA contracts
+     * Customer Interface:
+     * This is for customer to 1) generate the SLA contracts for winner providers and 2) prepay the service fee
      * */
     function genSLAContract() 
         public
+        payable
         checkState(State.Pending)
-        checkTimeAfter(revealEnd)
         checkTimeBefore(serviceStart)
-        checkProvider(msg.sender)
-        returns(bool withdrawSuccess)
-        // checkWinnerProvider(msg.sender)
-        // check(msg.value = winnerBids[winnerBidders[msg.sender]])  or create another mapping
-        returns(address)
+        checkCustomer(msg.sender)
+        returns(address[] memory)
         
     {
-        require (bidStructs[msg.sender].bidderDeposit > 0 && customerAddresses.length > 0);   
-        address newSLAContract = address (new CloudSLA(this, msg.sender, customerAddresses[0]));
-        SLAContractPool[newSLAContract].index = SLAContractAddresses.length;
-        SLAContractPool[newSLAContract].valid = true; 
-        SLAContractPool[newSLAContract].serviceFee = msg.value;
-        SLAContractAddresses.push(newSLAContract);
-
-        emit SLAContractGen(msg.sender, now, newSLAContract);
-        return newSLAContract;
+        require ( winnerBidders.length > 0);   
+        for (uint i=0; i < winnerBidders.length; i++) {
+            require (msg.value ==  winnerBids[i]);
+            address newSLAContract = address (new CloudSLA(this, winnerBidders[i], msg.sender, auctionItemStructs[msg.sender].auctionDetails, winnerBids[i]);
+            SLAContractPool[newSLAContract].index = SLAContractAddresses.length;
+            SLAContractPool[newSLAContract].serviceFee = msg.value;
+            SLAContractAddresses.push(newSLAContract);
+        }
+        if (SLAContractAddresses.length == winnerBidders.length){
+            emit SLAContractsGenerated(msg.sender, now, SLAContractAddresses);
+            return SLAContractAddresses;
+        }
     }
 
-    // to do
     /**
-     * Customer Interface:
-     * This is for Customer to accept the SLA contracts and put its prepaid service fee
+     * Provider Interface:
+     * This is for Providers to accept the SLA contracts
      * */
-    function acceptSLA() 
+    function acceptSLA(address _SLAAddress) 
         public 
         payable 
         checkState(State.Pending)
-        checkTimeAfter(revealEnd)
         checkTimeBefore(serviceStart)
-        checkCustomer(msg.sender)
-    {
-        CustomerBalance += msg.value;
-        
-        ///transfer ServiceFee from customer to provider 
-        ProviderBalance += ServiceFee;
-        CustomerBalance -= ServiceFee;
-        
-        ///setup the SharedBalance
-        ProviderBalance -= SharedFee;
-        CustomerBalance -= SharedFee;
-        SharedBalance += SharedFee*2;
+        checkProvider(msg.sender)
+    {   
+        require ((SLAContractAddresses.length == winnerBidders.length));   
+        for (uint i=0; i < winnerBidders.length; i++) {
+            if (winnerBidders[i] == msg.sender){
+            SLAContractPool[SLAContractAddresses[i]].accepted = true;
+            }
+        }
     }
-
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase7: normal user register as Witnesses and monitor the federated Cloud service.
@@ -450,7 +462,7 @@ contract CloudAuction {
 
     /**
      * Witness Interface:
-     * This is for normal users register as witnesses to monitor the federated Cloud service.
+     * This is for normal users register as witnesses to monitor the federated Cloud service
      * */
     function witnessRegister()
         public
@@ -470,14 +482,19 @@ contract CloudAuction {
 
     /**
      * Customer Interface:
-     * This is for customer to check the whether the registered provider number is enough
+     * This is for customer to check the whether the registered witnesses number is enough && all SLAs has been signed 
      * */
     function checkAuctionSettled () 
         public
         checkState(State.Pending)
         checkCustomer(msg.sender)
-    {
-        if (witnessAddrs.length >= 2*providerNumber && SLAContractAddresses.length == providerNumber){
+    {   
+
+        for (uint i=0; i < SLAContractAddresses.length; i++) {
+            if (SLAContractPool[SLAContractAddresses[i]].accepted = true)
+            counter++
+        }   
+        if (witnessAddrs.length >= witnessNumber && counter == SLAContractAddresses.length){
             AuctionState = State.Settled;
             emit AuctionStateModified(msg.sender, now, State.Settled);
         } else {
@@ -498,8 +515,7 @@ contract CloudAuction {
         public
         payable
         checkState(State.Settled)
-        checkTimeAfter(serviceStart)
-        checkTimeBefore(serviceEnd)
+        checkTimeAfter(serviceEnd)
         checkWitness(msg.sender)
         returns(bool reportSuccess)
     {   
@@ -523,8 +539,7 @@ contract CloudAuction {
         public
         payable
         checkState(State.Settled)
-        checkTimeAfter(serviceStart)
-        checkTimeBefore(serviceEnd)
+        checkTimeAfter(serviceEnd)
         checkWitness(msg.sender)
         returns(bool revealSuccess)
     {
@@ -571,8 +586,7 @@ contract CloudAuction {
     function calculateWitnessFee ()
         public
         checkState(State.Settled)
-        checkTimeAfter(serviceStart)
-        checkTimeBefore(serviceEnd)
+        checkTimeAfter(serviceEnd)
         checkCustomer(msg.sender)
         returns(bool calculateSuccess)
     {
@@ -587,7 +601,7 @@ contract CloudAuction {
                     accumulator += (revealedMessageArray[revealedWitnesses[i]][j] - revealedMessageArray[revealedWitnesses[k]][j]) ** 2;
                 }
             }
-            witnessFee[revealedWitnesses[i]] = providerNumber * uintWitnessFee - accumulator * Epsilon / (revealedWitnesses.length - 1);
+            witnessFee[revealedWitnesses[i]] = uintWitnessFee - accumulator * Epsilon / (revealedWitnesses.length - 1);
         }
         return true;
     }
@@ -600,69 +614,72 @@ contract CloudAuction {
     function witnessWithdraw()
         public
         checkState(State.Settled)
-        checkTimeAfter(serviceStart)
-        checkTimeBefore(serviceEnd)
+        checkTimeAfter(serviceEnd)
         checkWitness(msg.sender)
+        returns(bool withdrawSuccess)
     {
         require(witnessFee[msg.sender] > 0);
         msg.sender.transfer(witnessFee[msg.sender]);
         witnessFee[msg.sender] = 0;
+        return true;
     }
     
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// phase11: withdraw service fee.
-    uint[] serviceFee;
-    bool[] SLAviolated;
-
-
+// phase11: check SLA violation and withdraw service fee.
     mapping (address => uint[]) public revealedMessageArray;
     address payable [] public revealedWitnesses; 
-
-    mapping(address => uint) public refund;
     address payable [] public SLAContractAddresses;
-    address payable [] public customerAddresses;
 
+    mapping (address => bool) public SLAViolated;
+    address [] public SLAViolatedAddresses;
+
+
+    // function addRevealedMessageArray(uint[] memory _revealedMessageArray) public { 
+    //     revealedMessageArray[msg.sender] = _revealedMessageArray;
+    //     revealedWitnesses.push () = msg.sender;
+    // }
+    
+    // function addSLAContractAddresses() public {
+    //     SLAContractAddresses.push () = msg.sender;
+    // }
+    
 
     /**
      * Customer Interface:
-     * This is for customer to calculate the service fee
+     * This is for customer to check the SLA violation result and place the service fee 
      * */ 
     function  checkSLAViolation ()
         public
         payable
-        checkState(State.Settled)
-        checkTimeAfter(serviceStart)
-        checkTimeBefore(serviceEnd)
-        checkCustomer(msg.sender)
-        returns(bool calculateSuccess)
+        // checkState(State.Settled)
+        // checkTimeAfter(serviceStart)
+        // checkTimeBefore(serviceEnd)
+        // checkCustomer(msg.sender)
+        returns(bool checkSuccess)
     {   
-        uint[] memory count;
+        uint counter;
         for (uint j=0; j < SLAContractAddresses.length; j++) {
             for (uint i=0; i < revealedWitnesses.length; i++) {
                 // The message space is [1,10], the mean is 5
                 if (revealedMessageArray[revealedWitnesses[i]][j] > 5) {
-                    count[j] ++; 
+                    counter ++; 
                 }
-        }
-        for (uint j=0; j < SLAContractAddresses.length; j++) {
-            if (count[j] > 2/revealedWitnesses.length) {
-                SLAviolated[j] = true;    //. check   push
-                // transfer money(j) to customer
-                refund[customerAddresses[0]] = serviceFee[j];
-                // customerAddresses[0].transfer(refund[customerAddresses[0]]);
-            } else if (count[j] <= 2/revealedWitnesses.length) {
-                SLAviolated[j] = false;
-                // transfer money to provider j
-                refund[SLAContractAddresses[j]] = serviceFee[j];
-                // SLAContractAddresses[j].transfer(refund[SLAContractAddresses[j]]);
             }
-        }
-        if (SLAviolated.length == 0){
-            AuctionState = State.Successful;
-            emit AuctionStateModified(msg.sender, now, State.Successful);
-        } else if (SLAviolated.length != 0) {
-            AuctionState = State.Violated;
-            emit AuctionStateModified(msg.sender, now, State.Violated);
+            if (counter > revealedWitnesses.length/2) {
+                SLAViolated[SLAContractAddresses[j]] = true;
+                SLAViolatedAddresses.push() = SLAContractAddresses[j];
+            } else if (counter <= revealedWitnesses.length/2) {
+                SLAViolated[SLAContractAddresses[j]] = false;
+            }
+            counter = 0;
+        }              
+        for (uint j=0; j < SLAContractAddresses.length; j++) {
+            if (SLAViolatedAddresses.length == 0){
+                AuctionState = State.Successful;
+                emit AuctionStateModified(msg.sender, now, State.Successful);
+            } else if (SLAViolatedAddresses.length != 0) {
+                AuctionState = State.Violated;
+                emit AuctionStateModified(msg.sender, now, State.Violated);
         }
         }
         return true;   
@@ -677,10 +694,16 @@ contract CloudAuction {
         checkState(State.Violated)
         checkTimeAfter(serviceEnd)
         checkCustomer(msg.sender)
+        returns(bool withdrawSuccess)
+
     {
-        require(serviceFee[msg.sender] > 0);
-        msg.sender.transfer(serviceFee[msg.sender]);
-        serviceFee[msg.sender] = 0;
+        for (uint i=0; i < SLAContractAddresses.length; i++) {
+            if (SLAViolated[SLAContractAddresses[i]] = true) {
+                msg.sender.transfer(SLAContractPool[SLAContractAddresses[i]].serviceFee);
+                SLAContractPool[SLAContractAddresses[i]].serviceFee = 0;
+            }
+        }
+        return true;
     }
 
 
@@ -693,11 +716,24 @@ contract CloudAuction {
         checkState(State.Successful)
         checkTimeAfter(serviceEnd)
         checkProvider(msg.sender)
+        returns(bool withdrawSuccess)
     {
-        require(serviceFee[msg.sender] > 0);
-        msg.sender.transfer(serviceFee[msg.sender]);
-        serviceFee[msg.sender] = 0;
-    }
+        if (AuctionState = State.Successful){
+            for (uint i=0; i < winnerBidders.length; i++) {               
+                if (winnerBidders[i] == msg.sender){
+                    msg.sender.transfer(SLAContractPool[SLAContractAddresses[i]].serviceFee);
+                    SLAContractPool[SLAContractAddresses[i]].serviceFee = 0;
+                }
+            }
+        } else if (AuctionState = State.violated){
+            for (uint i=0; i < SLAContractAddresses.length; i++) {
+                if (winnerBidders[i] == msg.sender && SLAViolated[SLAContractAddresses[i]] = false) {
+                    msg.sender.transfer(SLAContractPool[SLAContractAddresses[i]].serviceFee);
+                    SLAContractPool[SLAContractAddresses[i]].serviceFee = 0;
+                }
+            }
+        }
+    }    
 
 
     /**
@@ -706,7 +742,7 @@ contract CloudAuction {
      * */ 
     function resetSLA()
         public
-        checkState(State.Successful || State.Violated)
+        checkReset()
         checkTimeAfter(serviceEnd)
         checkCustomer(msg.sender)
     {
@@ -722,9 +758,7 @@ contract CloudAuction {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-
 }
-
 
 /**
  * The CloudSLA contract manage the service details between provider and customer.
@@ -733,21 +767,23 @@ contract CloudSLA {
 
     address public customer;
     address public provider;
-    AuctionManagement public MainContract;
-    constructor(AuctionManagement _auctionManagement, address _provider, address _customer)
+    CloudAuction public MainContract;
+    string public serviceDetail;
+    uint public serviceFee；
+
+    constructor(CloudAuction _auctionManagement, address _provider, address _customer, string memory _serviceDetail, uint _serviceFee)
         public
     {
         provider = _provider;
         customer = _customer;
         MainContract = _auctionManagement;
+        serviceDetail = _serviceDetail;
+        serviceFee = _serviceFee;
     }
-
-    uint public serviceFee；
-    uint public uintWitnessFee;
-    uint public serviceDuration;
-    string public serviceDetail;
-
 }
+
+
+
 
 
 
