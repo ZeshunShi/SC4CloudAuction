@@ -1,429 +1,693 @@
-pragma solidity ^0.5.0;
-    /**
-     * The CloudAuction contract is a smart contract on Ethereum that supports the decentralized cloud providers to auction and bid the cloud services (IaaS). 
-     * examanier/auditor/arbiter
-     */
+pragma solidity > 0.6.5;
 
+/**
+ * The AuctionManagement contract manage the lifecycle of federated cloud auction.
+ * ;==========================================
+ * ; Title: Smart Contracts for Cloud Auction 
+ * ; Author: Zeshun Shi
+ * ; Email: z.shi2@uva.nl
+ * ;==========================================
+ */
+contract CloudAuction {
 
-// Some imported solidity libraries used in this contract.
-import "./library/librarySorting.sol";
-
-
-contract AuctionManagement {
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-    string public auctionDetails; // the details of the service requirements that need to be auctioned
-    uint8 public amount; // how many providers the customer need for the auction game
-    
-    bytes32 public sealedBid; // the sealed bidding price of the provider 
-    bytes32 public sealedReservePrice; // the sealed reservce price of the customer
-    uint public guaranteeDeposit; // this is the deposit money to guarantee providers/customer will sign the SLA after win the bids, avoids bad intention bids or publish
-
-    enum ProviderState {Ready, Busy, Absent} //{ Offline, Online, Candidate, Busy }
-
-    struct Provider {
-        uint index; // the index of the provider in the address pool, if it is registered
-        bool registered;    ///true: this provider has registered.         
-        int8 reputation; //the reputation of the provider, the initial value is 0.
-        ProviderState state;  // the current state of the provider
-    }
-
-    mapping (address => Provider) providerCrowd;
-
-    address [] public providerAddrs;    ////the address pool of providers, which is used for registe new providers in the auction 
-
-    bool public auctionStarted; 
-
-
-
-    enum AuctionState { fresh, started, publishEnd, registeEnd, bidEnd, revealEnd, monitored, finished }
-  
-    ////this is to log event that _who modified the Auction state to _newstate at time stamp _time
-    event AuctionStateModified(address indexed _who, uint _time, State _newstate);
-    emit AuctionStateModified(msg.sender, now, State.started);    
-    emit AuctionStateModified(msg.sender, now, State.registEnd);
-    emit AuctionStateModified(msg.sender, now, State.bidEnd);
-    emit AuctionStateModified(msg.sender, now, State.revealEnd);
-    emit AuctionStateModified(msg.sender, now, State.monitored);
-    emit AuctionStateModified(msg.sender, now, State.finished);
-
-
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    address payable public customer;
+    uint public startTime;
+    uint public setupEnd;
     uint public registeEnd;
     uint public biddingEnd;
     uint public revealEnd;
     uint public withdrawEnd;
-    //  the constructors for the auction smart contract.
-    constructor(address payable _customer, uint _registeTime, uint _biddingTime, uint _revealTime, uint _refundTime) 
-        public 
-    {
-        require (_inviteTime > 0);
-        require (_biddingTime > 0);
-        require (_revealTime > 0);
-        require (_withdrawTime > 0);    
+    uint public serviceStart;
+    uint public serviceEnd;
 
-        customer = _customer;
+    uint public reservePrice;
+    uint public unitWitnessFee = 1e17;  // To ensure each witness tell the truth, unitWitnessFee should weakly balanced with Epsilon * providerNumber.
+    uint public Epsilon = 4;
+    uint [] public revealedBids;
+    uint [] public winnerBids;
+    uint [] public loserBids;
 
-        registeEnd = now + _registeTime
-        biddingEnd = registeEnd + _biddingTime;
-        revealEnd = biddingEnd + _revealTime;
-        refundEnd = revealEnd + _refundTime;
-
-        auctionStarted = false;
-        AuctionState = fresh;
-    }
-
-
-   /**
-     * Customer Interface:
-     * This is for the customer to set up the auction and wait for the providers to bid. The customer need to place a blinded reserve price with keccak256(abi.encodePacked(_reservePrice, _customerPassword))
-     * */
-    function setupAuction (string _auctionDetails, uint _sealedReservePrice) 
-        public
-        payable
-        checkCustomer(msg.sender)
-        checkDeposit(depositPrice)
-        checkState(AuctionState.fresh) 
-    {
-        require (_sealedReservePrice > 0);  
-        sealedReservePrice = _sealedReservePrice;  
-        auctionDetails = _auctionDetails;
-        guaranteeDeposit += msg.value;  // customize the value
-        AuctionState = State.published;
-        emit AuctionStateModified(msg.sender, now, State.published);
-    }
-
-   /**
-     * Customer Interface::
-     * This is for the customer to cancel the auction
-     * */
-    function cancelAuction () 
-        public
-        payable
-        checkState(AuctionState.fresh)
-        checkCustomer(msg.sender)
-        checkTimeBefore(started)
-    {
-        if(depositPrice > 0)
-        {
-            msg.sender.transfer(depositPrice);
-            depositPrice = 0;
-        }      
-        AuctionState = State.Fresh;
-    }
-
-    /**
-     * Normal User Interface::
-     * This is for the normal user to register as a Cloud provider in the auction game
-     * */
-    function bidderRegister () 
-        public
-        checkProviderNotRegistered(msg.sender)
-        checkServiceInformation
-        view
-        returns(bool success) 
-    {
-        providerCrowd[msg.sender].index = providerAddrs.push(msg.sender) - 1; // check why -1
-        providerCrowd[msg.sender].reputation = 0;
-        providerCrowd[msg.sender].state = ProviderState.Ready;
-        providerCrowd[msg.sender].registered = true;
-        return true;
-    }
-    
-
-    function auctionStart () 
-        public
-        checkServiceInformation
-        checkBidderNumber(2*k)
-    {
-        require (!auctionStarted);
-        if (providerAddrs.length <= 2*k && providerAddrs.length >= k)
-        {
-            auctionStarted = true; 
-        }
-        emit AuctionStateModified(msg.sender, now, State.started);    
-    }
-
-
-
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-    // This is for the providers to bid (sealed) for the auction goods (service). Place a blinded bid with keccak256(abi.encodePacked(_bid, _providerPassword)), this action can be done off chain.
-    struct Bid {
-        bytes32 sealedBid;
-        uint deposit;
-    }
+    mapping(address => AuctionItem) public auctionItemStructs;
     mapping(address => Bid) public bidStructs;
-     
+    mapping(address => uint) refund;   
+    mapping(address => ContractInfo) public SLAContractPool;
+    mapping(address => Witness) public witnessPool;
+    mapping (address => bytes32[]) sealedMessageArray;
+    mapping (address => uint[]) public revealedMessageArray;
+    mapping (address => uint) public witnessFee;
+    mapping (address => bool) public SLAViolated;
+    mapping (address => Bidder) public providerPool;
+
+
     address [] public bidderAddresses;
+    address payable [] public revealedBidders;
+    address payable [] public winnerBidders;
+    address payable [] public loserBidders;
+    address [] public SLAContractAddresses;
+    address [] public witnessAddrs;    ////the address pool of witnesses
+    address payable [] public revealedWitnesses; 
+    address [] public SLAViolatedAddresses;
+    address payable [] public customerAddresses;
+    address [] public providerAddrs;    ////the address pool of providers, which is used for register new providers in the auction
 
-    // mapping(address => uint256) public escrowedFunds;
-    // mapping(address => uint256) public revealedBids;
-
-    function submitBids(bytes32 _sealedBid, uint _depositPrice) 
-        public
-        payable
-        checkTimeAfter(registeEnd)
-        checkTimeBefore(bidEnd)
-        checkProvider(msg.sender)
-        returns(bool success)
-    {
-        this.transfer(_depositPrice);
-        // set bid valuse using our bidStructs mapping
-        bidStructs[msg.sender].sealedBid = _sealedBid;
-        // set bid deposit using our userStructs mapping
-        bidStructs[msg.sender].deposit = _depositPrice;
-        // push user address into userAddresses array
-        bidderAddresses.push(msg.sender);
-
-        // can also put into modifier in the next phase
-        if (bidderAddresses.length > k)
-        {
-            return true;
-            emit AuctionStateModified(msg.sender, now, State.bidEnd);
-        } 
+    struct Bidder {
+        uint index; // the id of the provider in the address pool
+        bool registered;    ///true: this provider has registered     
     }
 
-    function getAllBidderAddress() external view returns (address[] memory) {
-        return bidderAddresses;
+    struct Bid {
+        string providerName;
+        bytes32 sealedBid;
+        uint witnessFee;
     }
 
-    function getTotalBids () external view returns(uint memory) {
-    for (uint i=0; i<arrayLength; i++) {
-        totalBids += bidStructs[bidderAddresses[i]];
-        return totalBids;
-    }
-    }
-
-    // function submitBids (bytes32 _sealedBid) 
-    //     public
-    //     payable
-    //     checkTimeAfter(registeEnd)
-    //     checkTimeBefore(bidEnd)
-    //     checkProvider(msg.sender)
-    // {
-        
-    //     require (_sealedBid > 0);
-    //     sealedBids[msg.sender].push = _sealedBid;
-    //     deposit[msg.sender] = msg.value;   // check how to define the amount msg.value
-
-    //     if (sealedBids.length >= k)
-    //     {
-    //         emit AuctionStateModified(msg.sender, now, State.bidEnd);
-    //     }       
-    // }
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-    function revealCustomer (byte32 _reservePrice, uint _customerPassword)
-        public
-        payable
-        checkTimeAfter(bidEnd)
-        checkTimeBefore(revealEnd)
-        checkCustomer(msg.sender)
-    {
-
-        if(keccak256(abi.encodePacked(_reservePrice, _customerPassword)) == sealedReservePrice){
-            reservePrice = _reservePrice;
-        }        
+    struct AuctionItem {
+        string cutomerName;
+        bytes32 sealedReservePrice;
+        string auctionDetails;
+        uint witnessFee; 
+        uint8 providerNumber;
+        uint8 witnessNumber;
     }
 
-    // TBD: check how to iterate the mapping
-     function revealProvider (bytes32 _bid, uint _providerPassword)
-        public
-        payable
-        checkTimeAfter(bidEnd)
-        checkTimeBefore(revealEnd)
-        checkProvider(msg.sender)
-    {
-
-        for (uint i=0; i < bidderAddresses.length; i++) {
-            totalBids += bidStructs[bidderAddresses[i]];
-        return totalBids;
-        }
-
-        if(keccak256(abi.encodePacked(_bid, _providerPassword)) == sealedBids[msg.sender]){
-            revealedBids[msg.sender] = _bid;
-        }        
-    }
-
-
-    /**
-     * Sorting Interface::
-     * This is for sorting the bidding prices by ascending of different providers
-     * */
-
-    using SortingMethods for uint[];
-    uint[] bidArray;
-
-    // this function add the bids from different providers
-    function addBids (uint[] memory _ArrayToAdd) public {
-        for (uint i=0; i< _ArrayToAdd.length; i++){
-            bidArray.push(_ArrayToAdd[i]);
-        }
-    }
-
-    function sortByPriceAscending() public returns(uint[] memory){
-        bidArray = bidArray.heapSort();
-        return bidArray;
-    }
-
-
-
-        
-
-
-
-
-
-    
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // check whether the servide information has been published
-    modifier checkServiceInformation () 
-    { 
-        require (auctionDetails != null && auctionDetails.length() != 0); 
-        "The auction service information has not been uploaded by customer"; 
+    struct ContractInfo {
+        uint index; // the id of the SLA contract in the address pool
+        uint serviceFee; // the service fee should be the bidding price
+        bool accepted; // true: this contract has been accepted
     }
     
-    // check whether it is a registered provider
-    modifier checkProviderNotRegistered(address _provider)
-    {
-        require(!providerCrowd[_provider].registered);
-        "The provider is not registered for the auction";
+    struct Witness {
+        uint index;         ///the index of the witness in the address pool, if it is registered
+        bool registered;    ///true: this witness has registered.
+        address[] SLAContracts;    ////the address of SLA contract
     }
 
-    // check the Provider's Reputation
-    modifier checkProviderReputation () 
-    { 
-        require (reputation >= 0); 
-        "The provider is not qualified to participate the auction due to bad reputation; 
-    }
+    // this is to illustrate the state machine of the CloudAuction contract
+    enum State { Fresh, Initialized, Pending, Settled, Violated, Successful, Canceled }
+    State public AuctionState;
 
-    // check the bidders number. The minimum biiders number is set to 2*k and can be customized later 
-    modifier checkBidderNumber(uint _amount) 
-    { 
-        require (providerAddrs.length > _amount); 
-        "The number of registered providers (bidders) is not enough to start the auction";
-    }
+
+    // this is to log event that _who modified the Auction state to _newstate at time stamp _time
+    event AuctionStateModified(address indexed _who, uint _time, State _newstate);
+    // this is to log event that _who generate the SLA contract _contractAddr at time stamp _time
+    event SLAContractsGenerated(address indexed _who, uint _time, address[] _contractAddr);
+
 
     modifier checkTimeBefore(uint _time) 
     {   
-        require(now < _time);
-         "The time is not before the time point"; 
+        require(now < _time, "The time is not before the time point");
+        _;          
     }
-
     modifier checkTimeAfter(uint _time)
     {    
-        require(now > _time);
-        "The time is not after the time point"; 
+        require(now > _time, "The time is not after the time point");
+        _;          
     }
-
+    modifier checkState(State _state){
+        require(AuctionState == _state, "The aution is not in the right state");
+        _;          
+    }
+    modifier checkReset(){
+        require(AuctionState == State.Violated || AuctionState == State.Successful || AuctionState == State.Successful, "The aution is not ready to reset");
+        _;          
+    }   
     modifier checkProvider(address _user) 
     {    
-        require(Provider[_user].registered);
-        "The current user is not a registered provider";
+        require(providerPool[_user].registered == true, "The current user is not a registered provider");
+        _;          
     }
-
-    modifier checkCustomer(address _user) { 
-        require (customer = _user); 
-        "The current user is not a customer";; 
+    modifier checkCustomer(address payable _user) { 
+        require (customerAddresses[0] == _user, "The current user is not the correct customer"); 
+        _;          
     }
-    
-    modifier checkDeposit(uint _money) {
-        require(msg.value == _money);
-        _;
+    modifier checkWitness(address _user) 
+    {    
+        require(witnessPool[_user].registered == true, "The current user is not a registered witness");
+        _;          
     }
-
-    modifier checkDeposit(uint _money) {
-        require(msg.value == _money);
-        _;
-    }
-
 
     
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    event AuctionStarted(address _who, uint _time)
-    event AuctionEnded(address winner, uint highestBid);
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  the constructors for two contracts respectively.
-    constructor(uint _auctionTime, uint _revealTime, address payable _customer) 
+    /**
+     * Customer Interface:
+     * This is constructor for someone (Normally the customer) to initiate the time durations for AuctionManagement contract
+     * */
+    constructor(uint _setupTime, uint _registeTime, uint _biddingTime, uint _revealTime, uint _withdrawTime, uint _serviceTime) 
         public 
     {
-        customer = _customer;
-        auctionEnd = now + _auctionTime;
-        revealEnd = auctionEnd + _revealTime;
+        require (_setupTime > 0);
+        require (_registeTime > 0);
+        require (_biddingTime > 0);
+        require (_revealTime > 0);
+        require (_withdrawTime > 0);
+        require (_serviceTime > 0);
+     
+        startTime = now;
+        setupEnd = startTime + _setupTime;
+        registeEnd = setupEnd + _registeTime;
+        biddingEnd = registeEnd + _biddingTime;
+        revealEnd = biddingEnd + _revealTime;
+        withdrawEnd = revealEnd + _withdrawTime;
+
+        serviceStart = withdrawEnd + 1 days;
+        serviceEnd = serviceStart + _serviceTime;
+
+        AuctionState = State.Fresh;
+        emit AuctionStateModified(msg.sender, now, State.Fresh);
     }
-
-
-    constructor(uint _witnessTime, uint _revealTime,  address payable _witness) 
-        public 
+    
+    /**
+     * Customer Interface:
+     * This is for customer to 1) setup the auction, 2) publish the auction details, and 3) prepay the witnessfee
+     * */
+    function setupAuction (string memory _customerName, string memory _auctionDetails, bytes32 _sealedReservePrice, uint8 _providerNumber, uint8 _witnessNumber) 
+        public
+        payable
+        checkState(State.Fresh)
+        // checkTimeAfter(startTime)
+        // checkTimeBefore(setupEnd)
+        returns(bool setupAuctionSuccess)
     {
-        witness = _witness;
-        witnessEnd = now + _witnessTime;
-        revealEnd = auctionEnd + _revealTime;
+        require (_sealedReservePrice.length != 0 && bytes(_auctionDetails).length > 0);
+        require (customerAddresses.length == 0);
+        require (msg.value >=  (_witnessNumber * unitWitnessFee) / 2 );
+        auctionItemStructs[msg.sender].cutomerName = _customerName;
+        auctionItemStructs[msg.sender].sealedReservePrice = _sealedReservePrice;
+        auctionItemStructs[msg.sender].auctionDetails = _auctionDetails;
+        auctionItemStructs[msg.sender].providerNumber = _providerNumber;
+        auctionItemStructs[msg.sender].witnessNumber = _witnessNumber;
+        auctionItemStructs[msg.sender].witnessFee = msg.value;
+        customerAddresses.push(msg.sender);
+        return true;        
     }
-
-// process:
-// 1. Cloud Customer upload the service information that needs to be auctioned. (and the parameters: k, reserve price U(blind))
-// 2. Cloud providers register in the AuctionContract (reputation 0). If the number of registered providers achieve the condition (*2), then // event: auction start.
-// 3. Registered providers submit their sealed bid + bid deposit (10%).   => function sumitBid // event: bids submitted.  // set: time window, - reputation (lazy) // only 接收到的报价的数量大于k， bidding 才能结束
-// 4. Reveal the bids with keccak256 algorithm. // Sorting the bids by ascending, 只有当满足reserve price U的报价的数量大于k的，拍卖成功，选出winner和他们的报价。给没有中标的provider退还保证金。the bid deposit is only refunded if the bid is correctly revealed in the revealing phase. 
-// 5. Winner bidders sign the SLAs with the user, respectively.
-// 
-// 
-//
-
-
+    
+    /**
+     * Provider Interface:
+     * This is for normal user register as providers(bidders) to participant the auction
+     * */
+    function bidderRegister () 
+        public
+        checkState(State.Fresh)
+        // checkTimeAfter(setupEnd)
+        // checkTimeBefore(registeEnd)
+        returns(bool registerSuccess) 
+    {
+        require (providerPool[msg.sender].registered == false);
+        providerPool[msg.sender].index = providerAddrs.length;
+        providerPool[msg.sender].registered = true;
+        providerAddrs.push(msg.sender);
+        return true;
+    }
 
     /**
-     * Provider Interface::
-     * This is for the winner provider to generate a SLA contract
+     * Customer Interface:
+     * This is for customer to check the whether the registered provider number is enough for the auction and set the auction state
+     * */
+    function checkProviderNumber () 
+        public
+        checkCustomer(msg.sender)
+        checkTimeAfter(registeEnd)
+    {
+        if (providerAddrs.length >= auctionItemStructs[customerAddresses[0]].providerNumber){
+            AuctionState = State.Initialized;
+            emit AuctionStateModified(msg.sender, now, State.Initialized);
+        } else {
+            AuctionState = State.Canceled;
+            emit AuctionStateModified(msg.sender, now, State.Canceled);
+        }
+    }
+
+    /**
+     * Provider Interface:
+     * This is for registered providers to 1) submit sealed bids and 2) prepay the witness fee
+     * */
+    function submitBids(string memory _providerName, bytes32 _sealedBid) 
+        public
+        payable
+        checkState(State.Initialized)
+        // checkTimeAfter(registeEnd)
+        // checkTimeBefore(biddingEnd)
+        checkProvider(msg.sender)
+        returns(bool submitSuccess)
+    {
+        require (_sealedBid.length != 0 && bytes(_providerName).length > 0);   
+        require (bidderAddresses.length <= 20);
+        require (msg.value >=  (auctionItemStructs[customerAddresses[0]].witnessNumber * unitWitnessFee) / (2 * auctionItemStructs[customerAddresses[0]].providerNumber) );
+        bidStructs[msg.sender].sealedBid = _sealedBid;
+        bidStructs[msg.sender].providerName = _providerName;
+        bidStructs[msg.sender].witnessFee = msg.value;
+        bidderAddresses.push(msg.sender);
+        return true;
+    }
+
+    /**
+     * Customer Interface:
+     * This is for customer to reveal the reserve price
+     * */
+    function revealReservePrice (string memory _customerName, uint _reservePrice, uint _customerKey)
+        public
+        payable
+        // checkState(State.Initialized)
+        // checkTimeAfter(biddingEnd)
+        // checkTimeBefore(revealEnd)
+        checkCustomer(msg.sender)
+        returns(uint)
+    {
+        require (_reservePrice > 0 && _customerKey != 0);
+        require (keccak256(abi.encodePacked(auctionItemStructs[msg.sender].cutomerName)) == keccak256(abi.encodePacked(_customerName)));
+        require (bidderAddresses.length >= auctionItemStructs[customerAddresses[0]].providerNumber && customerAddresses.length == 1);
+        if (keccak256(abi.encodePacked(_reservePrice, _customerKey)) == auctionItemStructs[msg.sender].sealedReservePrice){
+            reservePrice = _reservePrice;
+        }
+        return reservePrice;
+    }
+    
+    /**
+     * Provider Interface:
+     * This is for registered providers(who submitted the sealed bid) to reveal the bid
+     * */
+    function revealBids (string memory _providerName, uint _bid, uint _providerKey)
+        public
+        payable
+        checkState(State.Initialized)
+        // checkTimeAfter(biddingEnd)
+        // checkTimeBefore(revealEnd)
+        checkProvider(msg.sender)
+    {
+        require (_bid > 0 && _providerKey != 0);
+        require (keccak256(abi.encodePacked(bidStructs[msg.sender].providerName)) == keccak256(abi.encodePacked(_providerName)));
+        if (keccak256(abi.encodePacked(_bid, _providerKey)) == bidStructs[msg.sender].sealedBid){
+            // revealedBids[msg.sender] = _bid;
+            revealedBidders.push(msg.sender);
+            revealedBids.push(_bid);
+        }
+    }
+
+    /**
+     * Customer Interface:
+     * This is for customer to 1) sort the bids by ascending 2) select k-th providers to form a federated cloud servcie
+     * */        
+    function placeBids () 
+        public
+        checkState(State.Initialized)
+        // checkTimeAfter(revealEnd)
+        // checkTimeBefore(withdrawEnd)
+        checkCustomer(msg.sender)
+        returns(address payable [] memory, address payable [] memory)
+    {
+
+        require (revealedBidders.length >= auctionItemStructs[customerAddresses[0]].providerNumber);
+        bool exchanged; 
+        for (uint i=0; i < revealedBids.length - 1; i++) {
+            exchanged = false;
+            for (uint j =0; j < revealedBids.length- i - 1; j++){
+                if (revealedBids[j] > revealedBids[j+1]){
+                    (revealedBids[j], revealedBids[j+1]) = (revealedBids[j+1], revealedBids[j]);
+                    (revealedBidders[j], revealedBidders[j+1]) = (revealedBidders[j+1], revealedBidders[j]);
+                    exchanged = true;
+                }
+            }
+                if(exchanged==false) break;
+        }
+
+        uint sumBids;
+        for(uint i=0; i < auctionItemStructs[customerAddresses[0]].providerNumber; i++){
+            sumBids += revealedBids[i];
+        }
+        
+        for (uint i=0; i < revealedBidders.length; i++) {
+            if( i< auctionItemStructs[customerAddresses[0]].providerNumber && sumBids <= reservePrice) {
+                winnerBids.push() = revealedBids[i];
+                winnerBidders.push() = revealedBidders[i];
+            } else if( i >= auctionItemStructs[customerAddresses[0]].providerNumber && sumBids <= reservePrice ){
+                loserBids.push() = revealedBids[i];
+                loserBidders.push() = revealedBidders[i];
+            } else if( sumBids > reservePrice ){
+                loserBids.push() = revealedBids[i];
+                loserBidders.push() = revealedBidders[i];
+            }
+        }
+        if (winnerBidders.length == auctionItemStructs[customerAddresses[0]].providerNumber){
+            AuctionState = State.Pending;
+            emit AuctionStateModified(msg.sender, now, State.Pending);
+        } else if (winnerBidders.length == 0){
+            AuctionState = State.Canceled;
+            emit AuctionStateModified(msg.sender, now, State.Canceled);
+        }
+        return (winnerBidders,loserBidders);
+    }
+
+    /**
+     * Provider Interface:
+     * This is for loser providers to withdraw the witness fee
+     * */
+    function providerWithdrawWitnessFee()
+        public  
+        // checkTimeAfter(revealEnd)
+        // checkTimeBefore(withdrawEnd)
+        checkProvider(msg.sender)
+        returns(bool withdrawSuccess)
+    { 
+        require (bidStructs[msg.sender].witnessFee > 0);
+        require (loserBidders.length != 0);
+        for (uint i=0; i < loserBidders.length; i++) {
+            if (loserBidders[i] == msg.sender){
+            refund[msg.sender] = bidStructs[msg.sender].witnessFee;
+            msg.sender.transfer(refund[msg.sender]);
+            bidStructs[msg.sender].witnessFee = 0;
+            return true;
+            }
+        }        
+    }
+
+    /**
+     * Customer Interface:
+     * This is for customer to withdraw the witness fee, if the auction is failed (3 situations)
+     * */
+    function customerWithdrawWitnessFee()
+        public  
+        checkState(State.Canceled)
+        // checkTimeAfter(revealEnd)
+        // checkTimeBefore(withdrawEnd)
+        checkCustomer(msg.sender)
+        returns(bool withdrawSuccess)
+    {
+        require (auctionItemStructs[msg.sender].witnessFee > 0);
+        if (winnerBidders.length == 0) {
+            refund[msg.sender] = auctionItemStructs[msg.sender].witnessFee;
+            msg.sender.transfer(refund[msg.sender]);
+            auctionItemStructs[msg.sender].witnessFee = 0;         
+        }
+        return true;
+    }
+
+    /**
+     * Customer Interface:
+     * This is for customer to 1) generate the SLA contracts for winner providers and 2) prepay the total service fee
      * */
     function genSLAContract() 
         public
-        returns
-        (address)
+        payable
+        checkState(State.Pending)
+        // checkTimeBefore(serviceStart)
+        checkCustomer(msg.sender)
+        returns(address[] memory)
+        
     {
-        address newSLAContract = new CloudSLA(this, msg.sender, 0x0);
-        SLAContractPool[newSLAContract].valid = true; 
-        emit SLAContractGen(msg.sender, now, newSLAContract);
-        return newSLAContract;
-    }    
+        require ( winnerBidders.length > 0);   
+        for (uint i=0; i < winnerBidders.length; i++) {
+            address newSLAContract = address (new CloudSLA(this, winnerBidders[i], msg.sender, auctionItemStructs[msg.sender].auctionDetails, winnerBids[i]));
+            SLAContractPool[newSLAContract].index = SLAContractAddresses.length;
+            SLAContractPool[newSLAContract].serviceFee = winnerBids[i];
+            SLAContractAddresses.push(newSLAContract);
+        }
+        uint totalBids;
+        for (uint i=0; i < winnerBids.length; i++) {
+            totalBids += winnerBids[i];
+        }
+        require (msg.value == totalBids);
+
+        if (SLAContractAddresses.length == winnerBidders.length){
+            emit SLAContractsGenerated(msg.sender, now, SLAContractAddresses);
+            return SLAContractAddresses;
+        }
+    }
+
+    /**
+     * Provider Interface:
+     * This is for Providers to accept the SLA contracts
+     * */
+    function acceptSLA() 
+        public 
+        payable 
+        checkState(State.Pending)
+        // checkTimeBefore(serviceStart)
+        checkProvider(msg.sender)
+    {   
+        require (SLAContractAddresses.length == winnerBidders.length);   
+        for (uint i=0; i < winnerBidders.length; i++) {
+            if (winnerBidders[i] == msg.sender){
+            SLAContractPool[SLAContractAddresses[i]].accepted = true;
+            }
+        }
+    }
+
+    /**
+     * Witness Interface:
+     * This is for normal users register as witnesses to monitor the federated Cloud service
+     * */
+    function witnessRegister()
+        public
+        checkState(State.Pending)
+        // checkTimeAfter(revealEnd)
+        // checkTimeBefore(serviceStart)
+        returns(bool registerSuccess)
+    {
+        require (witnessAddrs.length <= 100);
+        require (witnessPool[msg.sender].registered == false);
+        witnessPool[msg.sender].index = witnessAddrs.length;
+        witnessPool[msg.sender].registered = true;
+        witnessPool[msg.sender].SLAContracts = SLAContractAddresses;
+        witnessAddrs.push(msg.sender);
+        return true;
+    }
+
+    /**
+     * Customer Interface:
+     * This is for customer to check the whether the registered witnesses number is enough && all SLAs has been signed 
+     * */
+    function checkAuctionSettled () 
+        public
+        checkState(State.Pending)
+        checkCustomer(msg.sender)
+    {   
+        uint counter;
+        for (uint i=0; i < SLAContractAddresses.length; i++) {
+            if (SLAContractPool[SLAContractAddresses[i]].accepted = true) {
+                counter++;
+            }
+        }   
+        if (witnessAddrs.length >= auctionItemStructs[customerAddresses[0]].witnessNumber && counter == SLAContractAddresses.length){
+            AuctionState = State.Settled;
+            emit AuctionStateModified(msg.sender, now, State.Settled);
+        } else {
+            AuctionState = State.Canceled;
+            emit AuctionStateModified(msg.sender, now, State.Canceled);
+        }
+    }
+
+    /**
+     * Witness Interface:
+     * This is for registered witnesses to submit the (sealed) monitoring messages array for different SLAs in the federated cloud service
+     * */
+    function submitMessages(bytes32[] memory _sealedMessage) 
+        public
+        payable
+        checkState(State.Settled)
+        // checkTimeAfter(serviceEnd)
+        checkWitness(msg.sender)
+        returns(bool reportSuccess)
+    {   
+        require (witnessPool[msg.sender].registered = true);       
+        require (_sealedMessage.length == auctionItemStructs[customerAddresses[0]].providerNumber);   
+        sealedMessageArray[msg.sender] = _sealedMessage;
+        return true;
+    }
+
+    /**
+     * Witness Interface:
+     * This is for registered witnesses(who submitted the sealed messages) to reveal the message array
+     * */
+    function revealMessages (uint[] memory _message, uint _witnessKey)
+        public
+        payable
+        checkState(State.Settled)
+        // checkTimeAfter(serviceEnd)
+        checkWitness(msg.sender)
+        returns(bool revealSuccess)
+    {
+        require (_message.length == auctionItemStructs[customerAddresses[0]].providerNumber && _witnessKey != 0);
+        uint SLAsNumber;
+        for (uint i=0; i < auctionItemStructs[customerAddresses[0]].providerNumber; i++) {
+            // check all the monitoring messages (for k SLAs) in the rang 0-10.
+            require (_message[i] >= 0 && _message[i] <= 10);
+            if (keccak256(abi.encodePacked(_message[i], _witnessKey)) == sealedMessageArray[msg.sender][i]){
+                SLAsNumber++;
+            }
+        }
+        // check all the monitoring messages(for k SLAs) in the array reveled successfully.
+        if (SLAsNumber == auctionItemStructs[customerAddresses[0]].providerNumber) {
+            revealedMessageArray[msg.sender] = _message;
+            revealedWitnesses.push(msg.sender);
+            return true;
+        } else if (SLAsNumber < auctionItemStructs[customerAddresses[0]].providerNumber) {
+            return false;
+        }
+    }
+
+    /**
+     * Customer Interface:
+     * This is for customer to calculate the wisness fee for all the witnesses based on their report result
+     * */ 
+    function calculateWitnessFee ()
+        public
+        checkState(State.Settled)
+        // checkTimeAfter(serviceEnd)
+        checkCustomer(msg.sender)
+        returns(bool calculateSuccess)
+    {
+
+        require (revealedWitnesses.length == auctionItemStructs[customerAddresses[0]].witnessNumber);
+        
+        for (uint i=0; i < revealedWitnesses.length; i++) {
+            uint accumulator = 0;
+            for (uint j=0; j < auctionItemStructs[customerAddresses[0]].providerNumber; j++) {
+                for (uint k=0; k < revealedWitnesses.length; k++) {
+                    // here need to check the divide accuracy of solidity version
+                    accumulator += (revealedMessageArray[revealedWitnesses[i]][j] - revealedMessageArray[revealedWitnesses[k]][j]) ** 2;
+                }
+            }
+            witnessFee[revealedWitnesses[i]] = unitWitnessFee - accumulator * Epsilon / (revealedWitnesses.length - 1);
+        }
+        return true;
+    }
+
+    /**
+     * Witness Interface:
+     * This is for registered witnesses to withdraw the witness fee (if the message array is revealed successfully)
+     * */ 
+    function witnessWithdraw()
+        public
+        checkState(State.Settled)
+        // checkTimeAfter(serviceEnd)
+        checkWitness(msg.sender)
+        returns(bool withdrawSuccess)
+    {
+        require(witnessFee[msg.sender] > 0);
+        msg.sender.transfer(witnessFee[msg.sender]);
+        witnessFee[msg.sender] = 0;
+        return true;
+    }
+
+    /**
+     * Customer Interface:
+     * This is for customer to check the SLA violation result and place the service fee 
+     * */ 
+    function checkSLAViolation ()
+        public
+        payable
+        checkState(State.Settled)
+        // checkTimeAfter(serviceEnd)
+        checkCustomer(msg.sender)
+        returns(bool checkSuccess)
+    {   
+        uint counter;
+        for (uint j=0; j < SLAContractAddresses.length; j++) {
+            for (uint i=0; i < revealedWitnesses.length; i++) {
+                // The message space is [1,10], the mean is 5
+                if (revealedMessageArray[revealedWitnesses[i]][j] > 5) {
+                    counter ++; 
+                }
+            }
+            if (counter > revealedWitnesses.length/2) {
+                SLAViolated[SLAContractAddresses[j]] = true;
+                SLAViolatedAddresses.push() = SLAContractAddresses[j];
+            } else if (counter <= revealedWitnesses.length/2) {
+                SLAViolated[SLAContractAddresses[j]] = false;
+            }
+            counter = 0;
+        }              
+        for (uint j=0; j < SLAContractAddresses.length; j++) {
+            if (SLAViolatedAddresses.length == 0){
+                AuctionState = State.Successful;
+                emit AuctionStateModified(msg.sender, now, State.Successful);
+            } else if (SLAViolatedAddresses.length != 0) {
+                AuctionState = State.Violated;
+                emit AuctionStateModified(msg.sender, now, State.Violated);
+        }
+        }
+        return true;   
+    }
+
+    /**
+     * Customer Interface:
+     * This is for customer to withdraw the service fee (if the SLA[j] is violated)
+     * */ 
+    function customerWithdrawServiceFee()
+        public
+        checkState(State.Violated)
+        // checkTimeAfter(serviceEnd)
+        checkCustomer(msg.sender)
+        returns(bool withdrawSuccess)
+
+    {
+        for (uint i=0; i < SLAContractAddresses.length; i++) {
+            if (SLAViolated[SLAContractAddresses[i]] == true) {
+                msg.sender.transfer(SLAContractPool[SLAContractAddresses[i]].serviceFee);
+                SLAContractPool[SLAContractAddresses[i]].serviceFee = 0;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Provider Interface:
+     * This is for provider to withdraw the service fee (if the SLA[j] is not violated)
+     * */ 
+    function providerWithdrawServiceFee()
+        public
+        payable
+        // checkTimeAfter(serviceEnd)
+        checkProvider(msg.sender)
+        returns(bool withdrawSuccess)
+    {
+        if (AuctionState == State.Successful || AuctionState == State.Violated){
+            for (uint i=0; i < SLAContractAddresses.length; i++) {
+                if (winnerBidders[i] == msg.sender && SLAViolated[SLAContractAddresses[i]] == false){
+                    msg.sender.transfer(SLAContractPool[SLAContractAddresses[i]].serviceFee);
+                    SLAContractPool[SLAContractAddresses[i]].serviceFee = 0;
+                    return true;
+                }
+            }
+        }
+    }
+
+    /**
+     * Customer Interface:
+     * This is for customer to reset the auction to fresh state
+     * */ 
+    function resetSLA()
+        public
+        // checkReset()
+        // checkTimeAfter(serviceEnd)
+        // checkCustomer(msg.sender)
+    {
+        delete winnerBidders;
+        delete winnerBids;
+        delete loserBidders;
+        delete loserBids;
+        AuctionState = State.Fresh;
+        emit AuctionStateModified(msg.sender, now, State.Fresh);
+    }
 }
-
-
 
 
 /**
- * The witness contract does this and that...
+ * The CloudSLA contract manage the service details between provider and customer.
  */
-contract AuctionSupervision {
-  constructor() public {
-    
-  }
+contract CloudSLA {
+
+    address public customer;
+    address public provider;
+    CloudAuction public MainContract;
+    string public serviceDetail;
+    uint public serviceFee;
+
+    constructor(CloudAuction _auctionManagement, address _provider, address _customer, string memory _serviceDetail, uint _serviceFee)
+        public
+    {
+        provider = _provider;
+        customer = _customer;
+        MainContract = _auctionManagement;
+        serviceDetail = _serviceDetail;
+        serviceFee = _serviceFee;
+    }
 }
-
-
-
-
-
-
-
-
-
