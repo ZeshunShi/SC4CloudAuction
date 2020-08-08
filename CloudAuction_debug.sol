@@ -8,10 +8,13 @@ contract CloudAuction {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase1: initialize auction contract, set auction procedures
     uint public startTime;
+    uint public setupEnd;
     uint public registeEnd;
     uint public biddingEnd;
     uint public revealEnd;
-    uint public refundEnd;
+    uint public withdrawEnd;
+    uint public serviceStart;
+    uint public serviceEnd;   
     
     // this is to illustrate the state machine of the CloudAuction contract
     enum State { Fresh, Initialized, Pending, Settled, Violated, Successful, Canceled }
@@ -41,37 +44,38 @@ contract CloudAuction {
         require(AuctionState == State.Violated || AuctionState == State.Successful || AuctionState == State.Successful, "The aution is not ready to reset");
         _;          
     }   
-    modifier checkProvider(address _user) 
-    {    
-        require(providerPool[_user].registered = true, "The current user is not a registered provider");
-        _;          
-    }
-    modifier checkCustomer(address _user) { 
-        require (customerAddresses[0] = _user, "The current user is not the correct customer"); 
-        _;          
-    }
-    modifier checkWitness(address _user) 
-    {    
-        require(witnessPool[_user].registered = true, "The current user is not a registered witness");
-        _;          
-    }
+    // modifier checkProvider(address _user) 
+    // {    
+    //     require(providerPool[_user].registered = true, "The current user is not a registered provider");
+    //     _;          
+    // }
+    // modifier checkCustomer(address _user) { 
+    //     require (customerAddresses[0] = _user, "The current user is not the correct customer"); 
+    //     _;          
+    // }
+    // modifier checkWitness(address _user) 
+    // {    
+    //     require(witnessPool[_user].registered = true, "The current user is not a registered witness");
+    //     _;          
+    // }
 
 
     /**
      * Customer Interface:
      * This is constructor for someone (Normally the customer) to initiate the time durations for AuctionManagement contract
      * */
-    constructor(uint _registeTime, uint _biddingTime, uint _revealTime, uint _withdrawTime, uint _serviceTime) 
+    constructor(uint _setupTime, uint _registeTime, uint _biddingTime, uint _revealTime, uint _withdrawTime, uint _serviceTime) 
         public 
     {
+        require (_setupTime > 0);
         require (_registeTime > 0);
         require (_biddingTime > 0);
         require (_revealTime > 0);
         require (_withdrawTime > 0);
         require (_serviceTime > 0);
-        
+     
         startTime = now;
-        setupEnd = startTime + _setupTime
+        setupEnd = startTime + _setupTime;
         registeEnd = setupEnd + _registeTime;
         biddingEnd = registeEnd + _biddingTime;
         revealEnd = biddingEnd + _revealTime;
@@ -118,7 +122,7 @@ contract CloudAuction {
     {
         require (_sealedReservePrice.length != 0 && bytes(_auctionDetails).length > 0);
         require (customerAddresses.length == 0);
-        require (msg.value >=  (_witnessNumber * uintWitnessFee) / 2 );
+        require (msg.value >=  (_witnessNumber * unitWitnessFee) / 2 );
         auctionItemStructs[msg.sender].cutomerName = _customerName;
         auctionItemStructs[msg.sender].sealedReservePrice = _sealedReservePrice;
         auctionItemStructs[msg.sender].auctionDetails = _auctionDetails;
@@ -126,7 +130,8 @@ contract CloudAuction {
         auctionItemStructs[msg.sender].witnessNumber = _witnessNumber;
         auctionItemStructs[msg.sender].witnessFee = msg.value;
         customerAddresses.push(msg.sender);
-        return true;        
+        return true;       
+        auctionItemStructs[customerAddresses[0]].providerNumber
     }
 
     // function viewCustomerAddressesLength() public view returns(uint){
@@ -161,8 +166,10 @@ contract CloudAuction {
         providerAddrs.push(msg.sender);
         return true;
     }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase4: check provider numbers
     /**
      * Customer Interface:
      * This is for customer to check the whether the registered provider number is enough for the auction and set the auction state
@@ -184,13 +191,11 @@ contract CloudAuction {
     // function viewProviderAddrsLength() public view returns(uint){
     //     return providerAddrs.length;
     // }
-
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// phase4: registered providers submit sealed bids as well as witness fee.
+// phase5: registered providers submit sealed bids as well as witness fee.
     struct Bid {
         string providerName;
         bytes32 sealedBid;
@@ -228,7 +233,7 @@ contract CloudAuction {
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// phase5: reveal, sorting, and pay back the witness fee.
+// phase6: customer reveal the reserve price
     uint public reservePrice;
 
     /**
@@ -252,10 +257,13 @@ contract CloudAuction {
         }
         return reservePrice;
     }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase7: providers reveal the sealed bidding price
     address payable [] public revealedBidders;
     uint [] public revealedBids;
-    // mapping(address => uint) public revealedBids;
     
     /**
      * Provider Interface:
@@ -280,8 +288,11 @@ contract CloudAuction {
     // function testReveal() public view returns(address payable [] memory, uint[] memory){
     //     return (revealedBidders,revealedBids);
     // }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase8: Customer sort the bids and set winners and losers
     address payable [] public winnerBidders;
     address payable [] public loserBidders;
     uint [] public winnerBids;
@@ -348,7 +359,11 @@ contract CloudAuction {
     // function testLoser() public view returns(address payable [] memory, uint[] memory){
     //     return (loserBidders,loserBids);
     // }
-    
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase9: loser providers withdraw the witnessFee
     /**
      * Provider Interface:
      * This is for loser providers to withdraw the witness fee
@@ -371,7 +386,10 @@ contract CloudAuction {
             }
         }        
     }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase10: customer withdraw the witnessFee
     /**
      * Customer Interface:
      * This is for customer to withdraw the witness fee, if the auction is failed (3 situations)
@@ -395,7 +413,7 @@ contract CloudAuction {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// phase6: generate SLA contracts for winner providers, respectively.
+// phase11: customer generate SLA contracts for winner providers, respectively.
     struct ContractInfo {
         uint index; // the id of the SLA contract in the address pool
         uint serviceFee; // the service fee should be the bidding price
@@ -430,12 +448,15 @@ contract CloudAuction {
             return SLAContractAddresses;
         }
     }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// phase12: providers accept the SLA contracts
     /**
      * Provider Interface:
      * This is for Providers to accept the SLA contracts
      * */
-    function acceptSLA(address _SLAAddress) 
+    function acceptSLA() 
         public 
         payable 
         checkState(State.Pending)
@@ -449,9 +470,10 @@ contract CloudAuction {
             }
         }
     }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// phase7: normal user register as Witnesses and monitor the federated Cloud service.
+// phase13: normal user register as Witnesses and monitor the federated Cloud service.
     struct Witness {
         uint index;         ///the index of the witness in the address pool, if it is registered
         bool registered;    ///true: this witness has registered.
@@ -479,6 +501,7 @@ contract CloudAuction {
         witnessAddrs.push(msg.sender);
         return true;
     }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * Customer Interface:
@@ -626,14 +649,29 @@ contract CloudAuction {
     
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // phase11: check SLA violation and withdraw service fee.
-    mapping (address => uint[]) public revealedMessageArray;
-    address payable [] public revealedWitnesses; 
+
     address payable [] public SLAContractAddresses;
 
     mapping (address => bool) public SLAViolated;
     address [] public SLAViolatedAddresses;
 
 
+    mapping (address => uint[]) public revealedMessageArray;
+    address payable [] public revealedWitnesses; 
+
+    mapping (address => bool) public SLAViolated;
+    address [] public SLAViolatedAddresses;
+
+    address payable [] public winnerBidders;
+    uint [] public winnerBids;
+
+    struct ContractInfo {
+        uint index; // the id of the SLA contract in the address pool
+        uint serviceFee; // the service fee should be the bidding price
+        bool accepted; // true: this contract has been accepted
+    }    
+    mapping(address => ContractInfo) SLAContractPool;
+    
     // function addRevealedMessageArray(uint[] memory _revealedMessageArray) public { 
     //     revealedMessageArray[msg.sender] = _revealedMessageArray;
     //     revealedWitnesses.push () = msg.sender;
@@ -648,7 +686,7 @@ contract CloudAuction {
      * Customer Interface:
      * This is for customer to check the SLA violation result and place the service fee 
      * */ 
-    function  checkSLAViolation ()
+    function checkSLAViolation ()
         public
         payable
         // checkState(State.Settled)
@@ -691,9 +729,9 @@ contract CloudAuction {
      * */ 
     function customerWithdrawServiceFee()
         public
-        checkState(State.Violated)
-        checkTimeAfter(serviceEnd)
-        checkCustomer(msg.sender)
+        // checkState(State.Violated)
+        // checkTimeAfter(serviceEnd)
+        // checkCustomer(msg.sender)
         returns(bool withdrawSuccess)
 
     {
@@ -713,27 +751,29 @@ contract CloudAuction {
      * */ 
     function providerWithdrawServiceFee()
         public
-        checkState(State.Successful)
-        checkTimeAfter(serviceEnd)
-        checkProvider(msg.sender)
+        // checkState(State.Successful)
+        // checkTimeAfter(serviceEnd)
+        // checkProvider(msg.sender)
         returns(bool withdrawSuccess)
     {
-        if (AuctionState = State.Successful){
+        if (AuctionState == State.Successful){
             for (uint i=0; i < winnerBidders.length; i++) {               
                 if (winnerBidders[i] == msg.sender){
                     msg.sender.transfer(SLAContractPool[SLAContractAddresses[i]].serviceFee);
                     SLAContractPool[SLAContractAddresses[i]].serviceFee = 0;
                 }
             }
-        } else if (AuctionState = State.violated){
+        } else if (AuctionState == State.Violated){
             for (uint i=0; i < SLAContractAddresses.length; i++) {
-                if (winnerBidders[i] == msg.sender && SLAViolated[SLAContractAddresses[i]] = false) {
+            require (SLAViolated[SLAContractAddresses[i]] = false);
+                if (winnerBidders[i] == msg.sender) {
                     msg.sender.transfer(SLAContractPool[SLAContractAddresses[i]].serviceFee);
                     SLAContractPool[SLAContractAddresses[i]].serviceFee = 0;
                 }
             }
         }
-    }    
+        return true;
+    }  
 
 
     /**
