@@ -1,7 +1,7 @@
 pragma solidity > 0.6.5;
 
 /**
- * The AuctionManagement contract manage the lifecycle of federated cloud auction.
+ * The CloudAuction contract manage the lifecycle of federated cloud auction.
  * ==========================================
  *  Title: Smart Contracts for Cloud Auction 
  *  Author: Zeshun Shi
@@ -162,8 +162,8 @@ contract CloudAuction {
         public
         payable
         checkState(State.Fresh)
-        // checkTimeAfter(startTime)
-        // checkTimeBefore(setupEnd)
+        checkTimeAfter(startTime)
+        checkTimeBefore(setupEnd)
         returns(bool setupAuctionSuccess)
     {
         require (_sealedReservePrice.length != 0 && bytes(_auctionDetails).length > 0);
@@ -186,8 +186,8 @@ contract CloudAuction {
     function bidderRegister () 
         public
         checkState(State.Fresh)
-        // checkTimeAfter(setupEnd)
-        // checkTimeBefore(registeEnd)
+        checkTimeAfter(setupEnd)
+        checkTimeBefore(registeEnd)
         returns(bool registerSuccess) 
     {
         require (providerPool[msg.sender].registered == false);
@@ -223,8 +223,8 @@ contract CloudAuction {
         public
         payable
         checkState(State.Initialized)
-        // checkTimeAfter(registeEnd)
-        // checkTimeBefore(biddingEnd)
+        checkTimeAfter(registeEnd)
+        checkTimeBefore(biddingEnd)
         checkProvider(msg.sender)
         returns(bool submitSuccess)
     {
@@ -245,9 +245,9 @@ contract CloudAuction {
     function revealReservePrice (string memory _customerName, uint _reservePrice, uint _customerKey)
         public
         payable
-        // checkState(State.Initialized)
-        // checkTimeAfter(biddingEnd)
-        // checkTimeBefore(revealEnd)
+        checkState(State.Initialized)
+        checkTimeAfter(biddingEnd)
+        checkTimeBefore(revealEnd)
         checkCustomer(msg.sender)
         returns(uint)
     {
@@ -268,8 +268,8 @@ contract CloudAuction {
         public
         payable
         checkState(State.Initialized)
-        // checkTimeAfter(biddingEnd)
-        // checkTimeBefore(revealEnd)
+        checkTimeAfter(biddingEnd)
+        checkTimeBefore(revealEnd)
         checkProvider(msg.sender)
     {
         require (_bid > 0 && _providerKey != 0);
@@ -288,8 +288,8 @@ contract CloudAuction {
     function placeBids () 
         public
         checkState(State.Initialized)
-        // checkTimeAfter(revealEnd)
-        // checkTimeBefore(withdrawEnd)
+        checkTimeAfter(revealEnd)
+        checkTimeBefore(withdrawEnd)
         checkCustomer(msg.sender)
         returns(address payable [] memory, address payable [] memory)
     {
@@ -341,8 +341,8 @@ contract CloudAuction {
      * */
     function providerWithdrawWitnessFee()
         public  
-        // checkTimeAfter(revealEnd)
-        // checkTimeBefore(withdrawEnd)
+        checkTimeAfter(revealEnd)
+        checkTimeBefore(withdrawEnd)
         checkProvider(msg.sender)
         returns(bool withdrawSuccess)
     { 
@@ -365,8 +365,8 @@ contract CloudAuction {
     function customerWithdrawWitnessFee()
         public  
         checkState(State.Canceled)
-        // checkTimeAfter(revealEnd)
-        // checkTimeBefore(withdrawEnd)
+        checkTimeAfter(revealEnd)
+        checkTimeBefore(withdrawEnd)
         checkCustomer(msg.sender)
         returns(bool withdrawSuccess)
     {
@@ -387,7 +387,7 @@ contract CloudAuction {
         public
         payable
         checkState(State.Pending)
-        // checkTimeBefore(serviceStart)
+        checkTimeBefore(serviceStart)
         checkCustomer(msg.sender)
         returns(address[] memory)
         
@@ -419,7 +419,7 @@ contract CloudAuction {
         public 
         payable 
         checkState(State.Pending)
-        // checkTimeBefore(serviceStart)
+        checkTimeBefore(serviceStart)
         checkProvider(msg.sender)
     {   
         require (SLAContractAddresses.length == winnerBidders.length);   
@@ -437,8 +437,8 @@ contract CloudAuction {
     function witnessRegister()
         public
         checkState(State.Pending)
-        // checkTimeAfter(revealEnd)
-        // checkTimeBefore(serviceStart)
+        checkTimeAfter(revealEnd)
+        checkTimeBefore(serviceStart)
         returns(bool registerSuccess)
     {
         require (witnessAddrs.length <= 100);
@@ -482,7 +482,7 @@ contract CloudAuction {
         public
         payable
         checkState(State.Settled)
-        // checkTimeAfter(serviceEnd)
+        checkTimeAfter(serviceEnd)
         checkWitness(msg.sender)
         returns(bool reportSuccess)
     {   
@@ -500,7 +500,7 @@ contract CloudAuction {
         public
         payable
         checkState(State.Settled)
-        // checkTimeAfter(serviceEnd)
+        checkTimeAfter(serviceEnd)
         checkWitness(msg.sender)
         returns(bool revealSuccess)
     {
@@ -530,7 +530,7 @@ contract CloudAuction {
     function calculateWitnessFee ()
         public
         checkState(State.Settled)
-        // checkTimeAfter(serviceEnd)
+        checkTimeAfter(serviceEnd)
         checkCustomer(msg.sender)
         returns(bool calculateSuccess)
     {
@@ -557,7 +557,7 @@ contract CloudAuction {
     function witnessWithdraw()
         public
         checkState(State.Settled)
-        // checkTimeAfter(serviceEnd)
+        checkTimeAfter(serviceEnd)
         checkWitness(msg.sender)
         returns(bool withdrawSuccess)
     {
@@ -575,7 +575,7 @@ contract CloudAuction {
         public
         payable
         checkState(State.Settled)
-        // checkTimeAfter(serviceEnd)
+        checkTimeAfter(serviceEnd)
         checkCustomer(msg.sender)
         returns(bool checkSuccess)
     {   
@@ -614,7 +614,7 @@ contract CloudAuction {
     function customerWithdrawServiceFee()
         public
         checkState(State.Violated)
-        // checkTimeAfter(serviceEnd)
+        checkTimeAfter(serviceEnd)
         checkCustomer(msg.sender)
         returns(bool withdrawSuccess)
 
@@ -635,7 +635,7 @@ contract CloudAuction {
     function providerWithdrawServiceFee()
         public
         payable
-        // checkTimeAfter(serviceEnd)
+        checkTimeAfter(serviceEnd)
         checkProvider(msg.sender)
         returns(bool withdrawSuccess)
     {
@@ -656,9 +656,9 @@ contract CloudAuction {
      * */ 
     function resetSLA()
         public
-        // checkReset()
-        // checkTimeAfter(serviceEnd)
-        // checkCustomer(msg.sender)
+        checkReset()
+        checkTimeAfter(serviceEnd)
+        checkCustomer(msg.sender)
     {
         delete winnerBidders;
         delete winnerBids;
