@@ -82,7 +82,7 @@ contract CloudAuction {
     }
 
     // this is to illustrate the state machine of the CloudAuction contract
-    enum State { Fresh, Initialized, Pending, Settled, Violated, Successful, Canceled }
+    enum State { Ready, Initialized, Pending, Settled, Violated, Successful, Canceled }
     State public AuctionState;
 
 
@@ -150,8 +150,8 @@ contract CloudAuction {
         serviceStart = withdrawEnd + 1 days;
         serviceEnd = serviceStart + _serviceTime;
 
-        AuctionState = State.Fresh;
-        emit AuctionStateModified(msg.sender, now, State.Fresh);
+        AuctionState = State.Ready;
+        emit AuctionStateModified(msg.sender, now, State.Ready);
     }
     
     /**
@@ -161,7 +161,7 @@ contract CloudAuction {
     function setupAuction (string memory _customerName, string memory _auctionDetails, bytes32 _sealedReservePrice, uint8 _providerNumber, uint8 _witnessNumber) 
         public
         payable
-        checkState(State.Fresh)
+        checkState(State.Ready)
         checkTimeAfter(startTime)
         checkTimeBefore(setupEnd)
         returns(bool setupAuctionSuccess)
@@ -185,7 +185,7 @@ contract CloudAuction {
      * */
     function bidderRegister () 
         public
-        checkState(State.Fresh)
+        checkState(State.Ready)
         checkTimeAfter(setupEnd)
         checkTimeBefore(registeEnd)
         returns(bool registerSuccess) 
@@ -652,7 +652,7 @@ contract CloudAuction {
 
     /**
      * Customer Interface:
-     * This is for customer to reset the auction to fresh state
+     * This is for customer to reset the auction to Ready state
      * */ 
     function resetSLA()
         public
@@ -664,8 +664,8 @@ contract CloudAuction {
         delete winnerBids;
         delete loserBidders;
         delete loserBids;
-        AuctionState = State.Fresh;
-        emit AuctionStateModified(msg.sender, now, State.Fresh);
+        AuctionState = State.Ready;
+        emit AuctionStateModified(msg.sender, now, State.Ready);
     }
 }
 
