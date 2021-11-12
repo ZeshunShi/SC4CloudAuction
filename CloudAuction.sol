@@ -667,6 +667,62 @@ contract CloudAuction {
         AuctionState = State.Ready;
         emit AuctionStateModified(msg.sender, now, State.Ready);
     }
+
+    // uint SLAs = 80;
+    // uint Witnesses = 100;
+    // mapping (address => bytes32[]) public sealedMessageArray;
+    // mapping (address => uint[]) public revealedMessageArray;
+
+    // mapping (address => uint256) public submissionDeposit;
+
+    // uint public witnessNum;
+    // uint public revealWitnessNum;
+
+    
+    // function submitMessages(bytes32[] memory _sealedMessage) 
+    //     public
+    //     payable
+    //     // checkTimeAfter(serviceEnd)
+    //     returns(bool reportSuccess)
+    // {   
+    //     // require (witnessPool[msg.sender].registered = true);       
+    //     require (_sealedMessage.length == SLAs);   
+    //     require (msg.value >  0 );
+    //     sealedMessageArray[msg.sender] = _sealedMessage;
+    //     submissionDeposit[msg.sender] = msg.value;
+    //     witnessNum++;
+    //     if (witnessNum == Witnesses) {
+    //         return true;
+    //     } 
+    // }
+    
+    
+    // function revealMessages (uint[] memory _message, uint _witnessKey)
+    //     public
+    //     payable
+    //     // checkTimeAfter(serviceEnd)
+    //     returns(bool revealSuccess)
+    // {
+    //     uint SLAsNum;
+    //     require (_message.length == SLAs && _witnessKey != 0);
+    //     for (uint i=0; i < SLAs; i++) {
+    //         // check all the monitoring messages (for k SLAs) in the rang 0-10.
+    //         require (_message[i] >= 0 && _message[i] <= 100);
+    //         if (keccak256(abi.encodePacked(_message[i], _witnessKey)) == sealedMessageArray[msg.sender][i]){
+    //             SLAsNum++;
+    //         }
+    //     }
+    //     if (SLAsNum == SLAs) {
+    //         revealedMessageArray[msg.sender] = _message;
+    //         msg.sender.transfer(submissionDeposit[msg.sender]);
+    //         submissionDeposit[msg.sender] = 0;
+    //         revealWitnessNum ++;      
+    //         if (revealWitnessNum == Witnesses) {
+    //             return true;
+    //         } 
+    //     } 
+    // }
+    
 }
 
 
